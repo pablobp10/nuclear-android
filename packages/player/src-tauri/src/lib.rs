@@ -42,7 +42,7 @@ pub fn run() {
 
     if !is_flatpak {
         builder = builder
-            //.plugin(tauri_plugin_updater::Builder::new().build())
+            //// Updater disabled for Android
             //.plugin(tauri_plugin_process::init());
     }
 
