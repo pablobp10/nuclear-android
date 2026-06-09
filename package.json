@@ -45,5 +45,5 @@
     "name": "nukeop <12746779+nukeop@users.noreply.github.com>"
   },
   "license": "AGPL-3.0-only",
-  "packageManager": "pnpm@9.0.0"
+  "packageManager": "pnpm@10.33.4"
 }
