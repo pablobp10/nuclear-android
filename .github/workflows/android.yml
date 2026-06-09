@@ -39,17 +39,11 @@ jobs:
           npm install -g pnpm@10.33.4
           pnpm install
 
-      - name: Compilar Frontend (React)
-        run: pnpm run build --filter "@nuclearplayer/player"
+      - name: Compilar Frontend (React ÚNICAMENTE)
+        # ESTA ES LA CLAVE: Usamos build:frontend para saltarnos la compilación de Linux
+        run: pnpm run build:frontend --filter "@nuclearplayer/player"
 
-      - name: 💥 Purgar Permisos de Updater (Fix para Android) 💥
-        # Buscamos en todos los archivos JSON dentro de capabilities y borramos cualquier línea que contenga "updater:"
-        run: |
-          find packages/player/src-tauri/capabilities -type f -name "*.json" -exec sed -i '/"updater:[^"]*"/d' {} +
-          # Y por si acaso, lo quitamos también de las dependencias nativas si existiera
-          sed -i '/tauri-plugin-updater/d' packages/player/src-tauri/Cargo.toml
-
-      - name: Compilar APK (Tauri)
+      - name: Compilar APK (Tauri Android)
         run: |
           cd packages/player
           npx tauri android build
