@@ -34,16 +34,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - name: Instalar pnpm y dependencias JS (En la raíz del monorepo)
+      - name: Instalar pnpm (Versión estricta) y dependencias
         run: |
-          npm install -g pnpm
+          npm install -g pnpm@10.33.4
           pnpm install
 
       - name: Compilar Frontend (React)
         run: pnpm run build --filter "@nuclearplayer/player"
 
       - name: Compilar APK (Tauri)
-        # Importante: Nos movemos a la carpeta del player para lanzar Tauri
         run: |
           cd packages/player
           npx tauri android build
