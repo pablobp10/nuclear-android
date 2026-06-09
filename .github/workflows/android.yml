@@ -42,16 +42,17 @@ jobs:
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
 
-      - name: Construir y Compilar APK (Tauri Android)
+      - name: Construir y Compilar APK (Tauri Android - DEBUG)
         run: |
           cd packages/player
-          # Generamos la carpeta gen/android al vuelo con el proyecto base
           npx tauri android init
-          # Lanzamos la compilación final
-          npx tauri android build
+          # Añadimos --debug para que Gradle firme la app automáticamente
+          # Añadimos --apk para asegurar que no genera un .aab (App Bundle)
+          npx tauri android build --debug --apk
 
       - name: Subir APK final
         uses: actions/upload-artifact@v4
         with:
           name: Nuclear-Player-APK
-          path: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          # Ajustamos la ruta para capturar el APK firmado de la carpeta debug
+          path: packages/player/src-tauri/gen/android/app/build/outputs/apk/debug/**/*.apk
