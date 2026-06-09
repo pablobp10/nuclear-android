@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  # Adelantarse al parche de GitHub Actions para evitar el warning de Node 20
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,7 +23,7 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Configurar Node.js
+      - name: Configurar Node.js (Para el código del proyecto)
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -27,7 +31,6 @@ jobs:
       - name: Configurar Rust (SOLO AARCH64)
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Solo descargamos el compilador para móviles modernos
           targets: aarch64-linux-android
 
       - name: Instalar dependencias del sistema
@@ -47,11 +50,11 @@ jobs:
         run: |
           cd packages/player
           npx tauri android init
-          # Forzamos la compilación ÚNICAMENTE para aarch64
           npx tauri android build --debug --apk --target aarch64
 
       - name: Subir APK final
         uses: actions/upload-artifact@v4
         with:
           name: Nuclear-Player-APK
-          path: packages/player/src-tauri/gen/android/app/build/outputs/apk/debug/**/*.apk
+          # Ruta "atrapalotodo" dentro de la carpeta apk
+          path: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
