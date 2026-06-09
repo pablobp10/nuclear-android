@@ -24,17 +24,18 @@ jobs:
         with:
           node-version: 20
 
-      - name: Configurar Rust
+      - name: Configurar Rust (SOLO AARCH64)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
+          # Solo descargamos el compilador para móviles modernos
+          targets: aarch64-linux-android
 
       - name: Instalar dependencias del sistema
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - name: Instalar pnpm (Versión estricta) y dependencias
+      - name: Instalar pnpm y dependencias
         run: |
           npm install -g pnpm@10.33.4
           pnpm install
@@ -46,13 +47,11 @@ jobs:
         run: |
           cd packages/player
           npx tauri android init
-          # Añadimos --debug para que Gradle firme la app automáticamente
-          # Añadimos --apk para asegurar que no genera un .aab (App Bundle)
-          npx tauri android build --debug --apk
+          # Forzamos la compilación ÚNICAMENTE para aarch64
+          npx tauri android build --debug --apk --target aarch64
 
       - name: Subir APK final
         uses: actions/upload-artifact@v4
         with:
           name: Nuclear-Player-APK
-          # Ajustamos la ruta para capturar el APK firmado de la carpeta debug
           path: packages/player/src-tauri/gen/android/app/build/outputs/apk/debug/**/*.apk
