@@ -75,5 +75,9 @@
       }
     }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "endpoints": []
+    }
+  }
 }
