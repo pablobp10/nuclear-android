@@ -1,0 +1,52 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el código fuente
+        uses: actions/checkout@v4
+
+      - name: Configurar Java (Requerido por Android SDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Configurar Node.js (Para construir React)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configurar Rust y Targets de Android
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
+
+      - name: Instalar dependencias del sistema (Ubuntu Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Instalar pnpm y dependencias JS
+        run: |
+          npm install -g pnpm
+          pnpm install
+
+      - name: Compilar e Inyectar Assets (React -> Tauri)
+        run: pnpm run build --if-present
+
+      - name: Compilar todo el proyecto Android (Rust + JS + Gradle)
+        run: npx tauri android build
+
+      - name: Subir APK final como Artefacto de descarga
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nuclear-Player-APK
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
