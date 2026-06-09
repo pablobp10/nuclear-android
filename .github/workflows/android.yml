@@ -39,9 +39,9 @@ jobs:
           npm install -g pnpm@10.33.4
           pnpm install
 
-      - name: Compilar Frontend (React ÚNICAMENTE)
-        # ESTA ES LA CLAVE: Usamos build:frontend para saltarnos la compilación de Linux
-        run: pnpm run build:frontend --filter "@nuclearplayer/player"
+      - name: Compilar Frontend y Dependencias (React)
+        # Volvemos al comando original
+        run: pnpm run build --filter "@nuclearplayer/player"
 
       - name: Compilar APK (Tauri Android)
         run: |
