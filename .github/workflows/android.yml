@@ -42,6 +42,13 @@ jobs:
       - name: Compilar Frontend (React)
         run: pnpm run build --filter "@nuclearplayer/player"
 
+      - name: 💥 Purgar Permisos de Updater (Fix para Android) 💥
+        # Buscamos en todos los archivos JSON dentro de capabilities y borramos cualquier línea que contenga "updater:"
+        run: |
+          find packages/player/src-tauri/capabilities -type f -name "*.json" -exec sed -i '/"updater:[^"]*"/d' {} +
+          # Y por si acaso, lo quitamos también de las dependencias nativas si existiera
+          sed -i '/tauri-plugin-updater/d' packages/player/src-tauri/Cargo.toml
+
       - name: Compilar APK (Tauri)
         run: |
           cd packages/player
