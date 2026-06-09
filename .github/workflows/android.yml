@@ -40,12 +40,14 @@ jobs:
           pnpm install
 
       - name: Compilar Frontend y Dependencias (React)
-        # Volvemos al comando original
         run: pnpm run build --filter "@nuclearplayer/player"
 
-      - name: Compilar APK (Tauri Android)
+      - name: Construir y Compilar APK (Tauri Android)
         run: |
           cd packages/player
+          # Generamos la carpeta gen/android al vuelo con el proyecto base
+          npx tauri android init
+          # Lanzamos la compilación final
           npx tauri android build
 
       - name: Subir APK final
