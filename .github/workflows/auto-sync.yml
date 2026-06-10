@@ -42,13 +42,13 @@ jobs:
           npm install -g pnpm@10.33.4
           pnpm install
 
-      - name: 🛠️ Aplicar Parches para Android (Al vuelo)
+      - name: 🛠️ Aplicar Parches para Android (Solo Archivos de Configuración JSON)
         run: |
           node -e '
             const fs = require("fs");
             const path = require("path");
 
-            // 1. Evitar compilación de Linux
+            // 1. Evitar compilación de Linux en Turborepo
             const pkgPath = "./packages/player/package.json";
             if (fs.existsSync(pkgPath)) {
               let pkg = JSON.parse(fs.readFileSync(pkgPath));
@@ -78,7 +78,7 @@ jobs:
               }
             }
 
-            // 3. Extirpar plugins y calmar al Bundler
+            // 3. Extirpar configuración de escritorio y calmar al Bundler
             const confPath = "./packages/player/src-tauri/tauri.conf.json";
             if (fs.existsSync(confPath)) {
               let conf = JSON.parse(fs.readFileSync(confPath));
@@ -93,57 +93,8 @@ jobs:
               };
               fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
             }
-
-            // 4. Purgar dependencias de Rust
-            const cargoPath = "./packages/player/src-tauri/Cargo.toml";
-            if (fs.existsSync(cargoPath)) {
-              let cargo = fs.readFileSync(cargoPath, "utf8");
-              cargo = cargo.replace(/.*tauri-plugin-updater.*/g, "");
-              cargo = cargo.replace(/.*tauri-plugin-process.*/g, "");
-              cargo = cargo.replace(/.*tauri-plugin-window-state.*/g, "");
-              fs.writeFileSync(cargoPath, cargo);
-            }
-
-            // 5. FIX CRÍTICO: Algoritmo analizador de paréntesis para código Rust
-            function removePlugin(code, pluginName) {
-                let searchStr = ".plugin(" + pluginName;
-                let idx = code.indexOf(searchStr);
-                while (idx !== -1) {
-                    let startParen = code.indexOf("(", idx);
-                    let open = 1;
-                    let endIdx = -1;
-                    for (let i = startParen + 1; i < code.length; i++) {
-                        if (code[i] === "(") open++;
-                        else if (code[i] === ")") {
-                            open--;
-                            if (open === 0) {
-                                endIdx = i;
-                                break;
-                            }
-                        }
-                    }
-                    if (endIdx !== -1) {
-                        code = code.substring(0, idx) + code.substring(endIdx + 1);
-                    } else {
-                        break;
-                    }
-                    idx = code.indexOf(searchStr);
-                }
-                return code;
-            }
-
-            const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
-            rsDirs.forEach(f => {
-              if (fs.existsSync(f)) {
-                let code = fs.readFileSync(f, "utf8");
-                code = removePlugin(code, "tauri_plugin_updater");
-                code = removePlugin(code, "tauri_plugin_process");
-                code = removePlugin(code, "tauri_plugin_window_state");
-                fs.writeFileSync(f, code);
-              }
-            });
           '
-          echo "¡Parches inyectados con analizador sintáctico en memoria!"
+          echo "¡Parches JSON inyectados! El código Rust queda intacto."
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
