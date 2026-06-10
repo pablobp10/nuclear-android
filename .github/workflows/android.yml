@@ -42,7 +42,7 @@ jobs:
           npm install -g pnpm@10.33.4
           pnpm install
 
-      - name: 🛠️ Aplicar Parches para Android (Al vuelo)
+      - name: 🛠️ Aplicar Parches para Android (Placebos y Fallbacks)
         run: |
           node -e '
             const fs = require("fs");
@@ -58,7 +58,7 @@ jobs:
               }
             }
 
-            // 2. Whitelist estricta de permisos Android
+            // 2. Whitelist de permisos Android
             const capsDir = "./packages/player/src-tauri/capabilities";
             const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:"];
             if (fs.existsSync(capsDir)) {
@@ -87,14 +87,11 @@ jobs:
               delete conf.plugins["window-state"];
               if (conf.bundle && conf.bundle.updater) delete conf.bundle.updater;
               
-              conf.plugins.updater = {
-                pubkey: "dW5hX2NsYXZlX3B1YmxpY2FfZmFsc2FfcGFyYV9lbmdhbmFyX2FsX2J1bmRsZXI=",
-                endpoints: []
-              };
+              conf.plugins.updater = { pubkey: "dW5hX2NsYXZlX3B1YmxpY2FfZmFsc2FfcGFyYV9lbmdhbmFyX2FsX2J1bmRsZXI=", endpoints: [] };
               fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
             }
 
-            // 4. Purgar dependencias de Rust
+            // 4. Purgar dependencias reales de Rust
             const cargoPath = "./packages/player/src-tauri/Cargo.toml";
             if (fs.existsSync(cargoPath)) {
               let cargo = fs.readFileSync(cargoPath, "utf8");
@@ -104,28 +101,58 @@ jobs:
               fs.writeFileSync(cargoPath, cargo);
             }
 
-            // 5. FIX DEFINITIVO RUST: Búsqueda y destrucción de cadenas literales exactas
-            const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
-            rsDirs.forEach(f => {
-              if (fs.existsSync(f)) {
-                let code = fs.readFileSync(f, "utf8");
-                code = code.split(".plugin(tauri_plugin_window_state::Builder::default().build())").join("");
-                code = code.split(".plugin(tauri_plugin_updater::Builder::new().build())").join("");
-                code = code.split(".plugin(tauri_plugin_process::init())").join("");
-                fs.writeFileSync(f, code);
+            // 5. SOLUCIÓN MAESTRA: Inyectar "Módulos Fantasma" en lib.rs
+            const libPath = "./packages/player/src-tauri/src/lib.rs";
+            if (fs.existsSync(libPath)) {
+              let code = fs.readFileSync(libPath, "utf8");
+              const dummyModules = `
+#[cfg(target_os = "android")]
+pub mod tauri_plugin_window_state {
+    pub struct Builder;
+    impl Builder {
+        pub fn default() -> Self { Self }
+        pub fn new() -> Self { Self }
+        pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_ws").build() }
+    }
+    pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_ws").build() }
+}
+#[cfg(target_os = "android")]
+pub mod tauri_plugin_updater {
+    pub struct Builder;
+    impl Builder {
+        pub fn default() -> Self { Self }
+        pub fn new() -> Self { Self }
+        pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_upd").build() }
+    }
+}
+#[cfg(target_os = "android")]
+pub mod tauri_plugin_process {
+    pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_proc").build() }
+}
+`;
+              if (!code.includes("dummy_ws")) {
+                fs.writeFileSync(libPath, dummyModules + "\n" + code);
               }
-            });
+            }
 
-            // 6. FIX YT-DLP: Inyectar compatibilidad con Android
+            // 6. FIX YT-DLP: Inyectar respuesta para Android
             const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
             if (fs.existsSync(ytdlpPath)) {
               let code = fs.readFileSync(ytdlpPath, "utf8");
-              // Captura target_os="linux" con cualquier espaciado y añade Android
-              code = code.replace(/target_os\s*=\s*"linux"/g, "any(target_os = \"linux\", target_os = \"android\")");
+              const sq = String.fromCharCode(39); // Genera la comilla simple para sortear a Bash
+              
+              const sig1 = "fn release_filename() -> &" + sq + "static str {";
+              const rep1 = sig1 + "\n    #[cfg(target_os=\"android\")] return \"yt-dlp\";";
+              code = code.replace(sig1, rep1);
+              
+              const sig2 = "fn binary_name() -> &" + sq + "static str {";
+              const rep2 = sig2 + "\n    #[cfg(target_os=\"android\")] return \"yt-dlp\";";
+              code = code.replace(sig2, rep2);
+              
               fs.writeFileSync(ytdlpPath, code);
             }
           '
-          echo "¡Parches de código exactos aplicados en memoria!"
+          echo "¡Módulos Fantasma inyectados con éxito!"
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
