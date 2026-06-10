@@ -28,30 +28,25 @@ jobs:
       - name: Sincronizar con el código original
         id: sync
         run: |
-          # Añadimos el repositorio original del creador
           git remote add upstream https://github.com/nukeop/nuclear.git
           git fetch upstream
           
-          # Guardamos el estado actual para comparar después
           ESTADO_PREVIO=$(git rev-parse HEAD)
           
-          # Fusionamos su rama master con tu rama main
-          git merge upstream/master --no-edit
+          # 🛠️ CORRECCIÓN CRÍTICA: Permitir unir historias distintas y priorizar el código original
+          git merge upstream/master --allow-unrelated-histories -X theirs --no-edit
           
-          # Comprobamos si el merge ha traído código nuevo
           ESTADO_NUEVO=$(git rev-parse HEAD)
           if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
             git push origin main
             echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
-            echo "¡Actualización detectada y guardada!"
+            echo "¡Actualización detectada y guardada con éxito!"
           else
             echo "cambios_nuevos=false" >> $GITHUB_OUTPUT
             echo "Todo está al día. No hay nada nuevo en el original."
           fi
 
       - name: Disparar compilación del APK
-        # Si GitHub Actions hace un push, no dispara otros workflows por seguridad.
-        # Por eso, usamos la CLI de GitHub para pulsar el botón de compilar a la fuerza.
         if: steps.sync.outputs.cambios_nuevos == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
