@@ -42,7 +42,7 @@ jobs:
           npm install -g pnpm@10.33.4
           pnpm install
 
-      - name: 🛠️ Crear script de parcheo seguro (Sin interferencia de Bash)
+      - name: 🛠️ Crear script de parcheo infalible
         run: |
           cat << 'EOF' > patch.js
           const fs = require("fs");
@@ -55,6 +55,7 @@ jobs:
             if (pkg.scripts && pkg.scripts.build) {
               pkg.scripts.build = pkg.scripts["build:frontend"] || "tsc && vite build";
               fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+              console.log("✔️ package.json parcheado");
             }
           }
 
@@ -76,6 +77,7 @@ jobs:
                 }
               } catch(e) {}
             }
+            console.log("✔️ Permisos saneados");
           }
 
           // 3. Extirpar plugins de escritorio de tauri.conf
@@ -88,9 +90,10 @@ jobs:
             if (conf.bundle && conf.bundle.updater) delete conf.bundle.updater;
             conf.plugins.updater = { pubkey: "dW5hX2NsYXZlX3B1YmxpY2FfZmFsc2FfcGFyYV9lbmdhbmFyX2FsX2J1bmRsZXI=", endpoints: [] };
             fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
+            console.log("✔️ tauri.conf.json parcheado");
           }
 
-          // 4. Purgar dependencias de Cargo.toml línea por línea
+          // 4. Purgar dependencias de Cargo.toml
           const cargoPath = "./packages/player/src-tauri/Cargo.toml";
           if (fs.existsSync(cargoPath)) {
             let cargoLines = fs.readFileSync(cargoPath, "utf8").split("\n");
@@ -100,37 +103,46 @@ jobs:
               !line.includes("tauri-plugin-window-state")
             );
             fs.writeFileSync(cargoPath, cargoLines.join("\n"));
+            console.log("✔️ Cargo.toml parcheado");
           }
 
-          // 5. RUST LINE-BY-LINE REPLACEMENT (Conserva sintaxis y punto y coma)
+          // 5. RUST: Módulo Fantasma Dinámico (Cero regex de estructura)
+          const dummyMod = `
+          pub mod dummy_plugin {
+              pub struct Builder;
+              impl Builder {
+                  pub fn default() -> Self { Self }
+                  pub fn new() -> Self { Self }
+                  pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() }
+              }
+              pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() }
+          }
+          `;
           const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
-          let pCount = 0;
           rsDirs.forEach(f => {
             if (fs.existsSync(f)) {
-              let lines = fs.readFileSync(f, "utf8").split("\n");
-              let newLines = lines.map(line => {
-                if (line.includes("tauri_plugin_window_state") || line.includes("tauri_plugin_updater") || line.includes("tauri_plugin_process")) {
-                  const hasSemicolon = line.includes(";");
-                  pCount++;
-                  return `        .plugin(tauri::plugin::Builder::new("dummy_${pCount}").build())` + (hasSemicolon ? ";" : "");
+              let code = fs.readFileSync(f, "utf8");
+              if (code.includes("tauri_plugin_window_state") || code.includes("tauri_plugin_updater") || code.includes("tauri_plugin_process")) {
+                code = code.replace(/tauri_plugin_window_state/g, "crate::dummy_plugin");
+                code = code.replace(/tauri_plugin_updater/g, "crate::dummy_plugin");
+                code = code.replace(/tauri_plugin_process/g, "crate::dummy_plugin");
+                if (!code.includes("pub mod dummy_plugin")) {
+                  code = dummyMod + "\n" + code;
                 }
-                return line;
-              });
-              fs.writeFileSync(f, newLines.join("\n"));
+                fs.writeFileSync(f, code);
+                console.log("✔️ Plugins neutralizados con alias en", f);
+              }
             }
           });
 
-          // 6. RUST YT-DLP: Retorno inyectado
+          // 6. RUST YT-DLP: Retorno inyectado a la fuerza
           const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
           if (fs.existsSync(ytdlpPath)) {
-            let ytLines = fs.readFileSync(ytdlpPath, "utf8").split("\n");
-            let newYtLines = ytLines.map(line => {
-              if (line.includes("fn release_filename()") || line.includes("fn binary_name()")) {
-                return line + "\n    #[cfg(target_os = \"android\")] return \"yt-dlp\";";
-              }
-              return line;
-            });
-            fs.writeFileSync(ytdlpPath, newYtLines.join("\n"));
+            let code = fs.readFileSync(ytdlpPath, "utf8");
+            code = code.replace(/fn\s+release_filename.*?\{/g, "fn release_filename() -> &'static str { return \"yt-dlp\";");
+            code = code.replace(/fn\s+binary_name.*?\{/g, "fn binary_name() -> &'static str { return \"yt-dlp\";");
+            fs.writeFileSync(ytdlpPath, code);
+            console.log("✔️ yt-dlp parcheado para Android");
           }
           EOF
 
