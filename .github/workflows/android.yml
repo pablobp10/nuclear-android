@@ -104,12 +104,11 @@ jobs:
               fs.writeFileSync(cargoPath, cargo);
             }
 
-            // 5. FIX CRÍTICO: Expresiones regulares multilínea tolerantes a saltos de carro en Rust
+            // 5. FIX: Búsqueda multilínea tolerante para librerías
             const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
             rsDirs.forEach(f => {
               if (fs.existsSync(f)) {
                 let code = fs.readFileSync(f, "utf8");
-                // Absorbe .plugin( ... ) entero, incluso si está escrito a lo largo de varias líneas
                 code = code.replace(/\.plugin\(\s*tauri_plugin_updater[\s\S]*?\.build\(\)\s*\)/g, "");
                 code = code.replace(/\.plugin\(\s*tauri_plugin_process::init\(\)\s*\)/g, "");
                 code = code.replace(/\.plugin\(\s*tauri_plugin_window_state[\s\S]*?\.build\(\)\s*\)/g, "");
@@ -117,8 +116,16 @@ jobs:
                 fs.writeFileSync(f, code);
               }
             });
+
+            // 6. FIX NUEVO: Engañar a yt-dlp para que Android compile como si fuera Linux
+            const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
+            if (fs.existsSync(ytdlpPath)) {
+              let code = fs.readFileSync(ytdlpPath, "utf8");
+              code = code.replace(/target_os = "linux"/g, "any(target_os = \"linux\", target_os = \"android\")");
+              fs.writeFileSync(ytdlpPath, code);
+            }
           '
-          echo "¡Parches inyectados en memoria con precisión multilínea!"
+          echo "¡Parches inyectados en memoria con soporte Android para yt-dlp!"
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
