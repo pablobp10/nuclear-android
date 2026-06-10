@@ -43,8 +43,9 @@ jobs:
           pnpm install
 
       - name: 🛠️ Crear script de parcheo infalible
+        # FIX: Guardamos como .cjs para forzar el modo CommonJS y permitir 'require'
         run: |
-          cat << 'EOF' > patch.js
+          cat << 'EOF' > patch.cjs
           const fs = require("fs");
           const path = require("path");
 
@@ -106,7 +107,7 @@ jobs:
             console.log("✔️ Cargo.toml parcheado");
           }
 
-          // 5. RUST: Módulo Fantasma Dinámico (Cero regex de estructura)
+          // 5. RUST: Módulo Fantasma Dinámico
           const dummyMod = `
           pub mod dummy_plugin {
               pub struct Builder;
@@ -147,7 +148,8 @@ jobs:
           EOF
 
       - name: 🛠️ Ejecutar Parches
-        run: node patch.js
+        # FIX: Ejecutamos el archivo con su nueva extensión .cjs
+        run: node patch.cjs
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
