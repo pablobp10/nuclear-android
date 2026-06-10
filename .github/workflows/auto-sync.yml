@@ -33,7 +33,6 @@ jobs:
           
           ESTADO_PREVIO=$(git rev-parse HEAD)
           
-          # 🛠️ CORRECCIÓN CRÍTICA: Permitir unir historias distintas y priorizar el código original
           git merge upstream/master --allow-unrelated-histories -X theirs --no-edit
           
           ESTADO_NUEVO=$(git rev-parse HEAD)
@@ -51,5 +50,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run android.yml --ref main
+          # 🛠️ FIX CRÍTICO: Forzar a la CLI a ejecutar el flujo en TU repositorio clonado
+          gh workflow run android.yml --ref main --repo ${{ github.repository }}
           echo "¡Orden de compilar el nuevo APK enviada al Constructor!"
