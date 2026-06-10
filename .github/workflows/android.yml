@@ -3,7 +3,6 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
-  # También tiene el botón manual, por si solo quieres recompilar sin sincronizar
   workflow_dispatch:
 
 env:
@@ -105,19 +104,21 @@ jobs:
               fs.writeFileSync(cargoPath, cargo);
             }
 
-            // 5. Comentar inicialización de plugins incompatibles
+            // 5. FIX CRÍTICO: Expresiones regulares multilínea tolerantes a saltos de carro en Rust
             const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
             rsDirs.forEach(f => {
               if (fs.existsSync(f)) {
                 let code = fs.readFileSync(f, "utf8");
-                code = code.replace(/\.plugin\(tauri_plugin_updater.*?\)[\)]?/g, "");
-                code = code.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "");
-                code = code.replace(/\.plugin\(tauri_plugin_window_state.*?\)[\)]?/g, "");
+                // Absorbe .plugin( ... ) entero, incluso si está escrito a lo largo de varias líneas
+                code = code.replace(/\.plugin\(\s*tauri_plugin_updater[\s\S]*?\.build\(\)\s*\)/g, "");
+                code = code.replace(/\.plugin\(\s*tauri_plugin_process::init\(\)\s*\)/g, "");
+                code = code.replace(/\.plugin\(\s*tauri_plugin_window_state[\s\S]*?\.build\(\)\s*\)/g, "");
+                code = code.replace(/\.plugin\(\s*tauri_plugin_window_state::init\(\)\s*\)/g, "");
                 fs.writeFileSync(f, code);
               }
             });
           '
-          echo "¡Parches inyectados en memoria!"
+          echo "¡Parches inyectados en memoria con precisión multilínea!"
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
