@@ -1,55 +1,136 @@
-name: Auto-Sync Upstream
+name: Build Android APK
 
 on:
-  schedule:
-    # Se ejecuta automáticamente todos los días a las 3:00 AM (UTC)
-    - cron: '0 3 * * *'
-  # Habilita el botón para lanzarlo MANUALMENTE desde la pestaña Actions
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  sync-and-build:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
 
     steps:
-      - name: Descargar tu código
+      - name: Descargar el código fuente
         uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
         with:
-          fetch-depth: 0
+          distribution: 'zulu'
+          java-version: '17'
 
-      - name: Configurar Git Bot
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Sincronizar con el código original
-        id: sync
-        run: |
-          git remote add upstream https://github.com/nukeop/nuclear.git
-          git fetch upstream
-          
-          ESTADO_PREVIO=$(git rev-parse HEAD)
-          
-          git merge upstream/master --allow-unrelated-histories -X theirs --no-edit
-          
-          ESTADO_NUEVO=$(git rev-parse HEAD)
-          if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
-            git push origin main
-            echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
-            echo "¡Actualización detectada y guardada con éxito!"
-          else
-            echo "cambios_nuevos=false" >> $GITHUB_OUTPUT
-            echo "Todo está al día. No hay nada nuevo en el original."
-          fi
+      - name: Configurar Rust (SOLO AARCH64)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
 
-      - name: Disparar compilación del APK
-        if: steps.sync.outputs.cambios_nuevos == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Instalar dependencias del sistema
         run: |
-          # 🛠️ FIX CRÍTICO: Forzar a la CLI a ejecutar el flujo en TU repositorio clonado
-          gh workflow run android.yml --ref main --repo ${{ github.repository }}
-          echo "¡Orden de compilar el nuevo APK enviada al Constructor!"
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Instalar pnpm y dependencias
+        run: |
+          npm install -g pnpm@10.33.4
+          pnpm install
+
+      - name: 🛠️ Aplicar Parches para Android (Al vuelo)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+
+            // 1. Evitar compilación de Linux en Turborepo
+            const pkgPath = "./packages/player/package.json";
+            if (fs.existsSync(pkgPath)) {
+              let pkg = JSON.parse(fs.readFileSync(pkgPath));
+              if (pkg.scripts && pkg.scripts.build) {
+                pkg.scripts.build = pkg.scripts["build:frontend"] || "tsc && vite build";
+                fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+              }
+            }
+
+            // 2. Whitelist estricta de permisos Android
+            const capsDir = "./packages/player/src-tauri/capabilities";
+            const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:"];
+            if (fs.existsSync(capsDir)) {
+              const files = fs.readdirSync(capsDir).filter(f => f.endsWith(".json"));
+              for (const file of files) {
+                const fPath = path.join(capsDir, file);
+                try {
+                  const data = JSON.parse(fs.readFileSync(fPath, "utf8"));
+                  if (data.permissions) {
+                    data.permissions = data.permissions.filter(p => {
+                      const pName = typeof p === "string" ? p : p.identifier;
+                      return pName && permitidos.some(prefix => pName.startsWith(prefix));
+                    });
+                    fs.writeFileSync(fPath, JSON.stringify(data, null, 2));
+                  }
+                } catch(e) {}
+              }
+            }
+
+            // 3. Extirpar plugins de escritorio y calmar al Bundler
+            const confPath = "./packages/player/src-tauri/tauri.conf.json";
+            if (fs.existsSync(confPath)) {
+              let conf = JSON.parse(fs.readFileSync(confPath));
+              if (!conf.plugins) conf.plugins = {};
+              delete conf.plugins.process;
+              delete conf.plugins["window-state"];
+              if (conf.bundle && conf.bundle.updater) delete conf.bundle.updater;
+              
+              conf.plugins.updater = {
+                pubkey: "dW5hX2NsYXZlX3B1YmxpY2FfZmFsc2FfcGFyYV9lbmdhbmFyX2FsX2J1bmRsZXI=",
+                endpoints: []
+              };
+              fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
+            }
+
+            // 4. Purgar dependencias de Rust
+            const cargoPath = "./packages/player/src-tauri/Cargo.toml";
+            if (fs.existsSync(cargoPath)) {
+              let cargo = fs.readFileSync(cargoPath, "utf8");
+              cargo = cargo.replace(/.*tauri-plugin-updater.*/g, "");
+              cargo = cargo.replace(/.*tauri-plugin-process.*/g, "");
+              cargo = cargo.replace(/.*tauri-plugin-window-state.*/g, "");
+              fs.writeFileSync(cargoPath, cargo);
+            }
+
+            // 5. FIX CRÍTICO: Búsqueda exacta de strings en Rust para evitar errores de sintaxis
+            const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
+            rsDirs.forEach(f => {
+              if (fs.existsSync(f)) {
+                let code = fs.readFileSync(f, "utf8");
+                code = code.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "");
+                code = code.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "");
+                code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "");
+                code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::new\(\)\.build\(\)\)/g, "");
+                code = code.replace(/\.plugin\(tauri_plugin_window_state::init\(\)\)/g, "");
+                fs.writeFileSync(f, code);
+              }
+            });
+          '
+          echo "¡Parches inyectados en memoria con máxima precisión!"
+
+      - name: Compilar Frontend y Dependencias (React)
+        run: pnpm run build --filter "@nuclearplayer/player"
+
+      - name: Construir y Compilar APK (Tauri Android - DEBUG)
+        run: |
+          cd packages/player
+          npx tauri android init
+          npx tauri android build --debug --apk --target aarch64
+
+      - name: Subir APK final
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nuclear-Player-APK
+          path: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
