@@ -1,112 +1,62 @@
-name: Build Android APK
+name: Auto-Sync Upstream
 
 on:
-  push:
-    branches: [ main ]
+  schedule:
+    # El vigilante se despierta automáticamente todos los días a las 3:00 AM (Hora UTC)
+    - cron: '0 3 * * *'
+  # Este comando añade el botón "Run workflow" para que lo lances MANUALMENTE cuando quieras
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
-  build:
+  sync-and-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
 
     steps:
-      - name: Descargar el código fuente
+      - name: Descargar tu código
         uses: actions/checkout@v4
-
-      - name: Configurar Java
-        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Configurar Rust (SOLO AARCH64)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - name: Instalar dependencias del sistema
+      - name: Configurar Git Bot
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Instalar pnpm y dependencias
+      - name: Sincronizar con el código original (Nuclear)
+        id: sync
         run: |
-          npm install -g pnpm@10.33.4
-          pnpm install
+          # Añadimos la fuente original
+          git remote add upstream https://github.com/nukeop/nuclear.git
+          git fetch upstream
+          
+          # Guardamos el hash del commit actual
+          ESTADO_PREVIO=$(git rev-parse HEAD)
+          
+          # Fusionamos su código dando prioridad al código de ellos si hay conflictos (-X theirs)
+          git merge upstream/master --allow-unrelated-histories -X theirs --no-edit
+          
+          ESTADO_NUEVO=$(git rev-parse HEAD)
+          
+          if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
+            # Si hay código nuevo, guardamos los cambios en tu repositorio
+            git push origin main
+            echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
+            echo "¡Actualización detectada y fusionada con éxito!"
+          else
+            echo "cambios_nuevos=false" >> $GITHUB_OUTPUT
+            echo "Todo está al día. El creador original no ha subido nada nuevo."
+          fi
 
-      - name: 🛠️ Aplicar Parches para Android (Solo Archivos de Configuración JSON)
+      - name: Disparar la compilación del APK
+        # Este paso SOLO se ejecuta si el paso anterior detectó cambios reales
+        if: steps.sync.outputs.cambios_nuevos == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node -e '
-            const fs = require("fs");
-            const path = require("path");
-
-            // 1. Evitar compilación de Linux en Turborepo
-            const pkgPath = "./packages/player/package.json";
-            if (fs.existsSync(pkgPath)) {
-              let pkg = JSON.parse(fs.readFileSync(pkgPath));
-              if (pkg.scripts && pkg.scripts.build) {
-                pkg.scripts.build = pkg.scripts["build:frontend"] || "tsc && vite build";
-                fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
-              }
-            }
-
-            // 2. Whitelist estricta de permisos Android
-            const capsDir = "./packages/player/src-tauri/capabilities";
-            const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:"];
-            if (fs.existsSync(capsDir)) {
-              const files = fs.readdirSync(capsDir).filter(f => f.endsWith(".json"));
-              for (const file of files) {
-                const fPath = path.join(capsDir, file);
-                try {
-                  const data = JSON.parse(fs.readFileSync(fPath, "utf8"));
-                  if (data.permissions) {
-                    data.permissions = data.permissions.filter(p => {
-                      const pName = typeof p === "string" ? p : p.identifier;
-                      return pName && permitidos.some(prefix => pName.startsWith(prefix));
-                    });
-                    fs.writeFileSync(fPath, JSON.stringify(data, null, 2));
-                  }
-                } catch(e) {}
-              }
-            }
-
-            // 3. Extirpar configuración de escritorio y calmar al Bundler
-            const confPath = "./packages/player/src-tauri/tauri.conf.json";
-            if (fs.existsSync(confPath)) {
-              let conf = JSON.parse(fs.readFileSync(confPath));
-              if (!conf.plugins) conf.plugins = {};
-              delete conf.plugins.process;
-              delete conf.plugins["window-state"];
-              if (conf.bundle && conf.bundle.updater) delete conf.bundle.updater;
-              
-              conf.plugins.updater = {
-                pubkey: "dW5hX2NsYXZlX3B1YmxpY2FfZmFsc2FfcGFyYV9lbmdhbmFyX2FsX2J1bmRsZXI=",
-                endpoints: []
-              };
-              fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
-            }
-          '
-          echo "¡Parches JSON inyectados! El código Rust queda intacto."
-
-      - name: Compilar Frontend y Dependencias (React)
-        run: pnpm run build --filter "@nuclearplayer/player"
-
-      - name: Construir y Compilar APK (Tauri Android - DEBUG)
-        run: |
-          cd packages/player
-          npx tauri android init
-          npx tauri android build --debug --apk --target aarch64
-
-      - name: Subir APK final
-        uses: actions/upload-artifact@v4
-        with:
-          name: Nuclear-Player-APK
-          path: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          # Usamos la CLI de GitHub para ejecutar tu android.yml
+          # La bandera --repo fuerza a que busque el workflow en tu fork, evitando el error 404
+          gh workflow run android.yml --ref main --repo ${{ github.repository }}
+          echo "¡Orden de compilación enviada al Constructor (android.yml)!"
