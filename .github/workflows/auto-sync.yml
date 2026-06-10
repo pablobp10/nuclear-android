@@ -48,7 +48,7 @@ jobs:
             const fs = require("fs");
             const path = require("path");
 
-            // 1. Evitar compilación de Linux en Turborepo
+            // 1. Evitar compilación de Linux
             const pkgPath = "./packages/player/package.json";
             if (fs.existsSync(pkgPath)) {
               let pkg = JSON.parse(fs.readFileSync(pkgPath));
@@ -78,7 +78,7 @@ jobs:
               }
             }
 
-            // 3. Extirpar plugins de escritorio y calmar al Bundler
+            // 3. Extirpar plugins y calmar al Bundler
             const confPath = "./packages/player/src-tauri/tauri.conf.json";
             if (fs.existsSync(confPath)) {
               let conf = JSON.parse(fs.readFileSync(confPath));
@@ -104,21 +104,46 @@ jobs:
               fs.writeFileSync(cargoPath, cargo);
             }
 
-            // 5. FIX CRÍTICO: Búsqueda exacta de strings en Rust para evitar errores de sintaxis
+            // 5. FIX CRÍTICO: Algoritmo analizador de paréntesis para código Rust
+            function removePlugin(code, pluginName) {
+                let searchStr = ".plugin(" + pluginName;
+                let idx = code.indexOf(searchStr);
+                while (idx !== -1) {
+                    let startParen = code.indexOf("(", idx);
+                    let open = 1;
+                    let endIdx = -1;
+                    for (let i = startParen + 1; i < code.length; i++) {
+                        if (code[i] === "(") open++;
+                        else if (code[i] === ")") {
+                            open--;
+                            if (open === 0) {
+                                endIdx = i;
+                                break;
+                            }
+                        }
+                    }
+                    if (endIdx !== -1) {
+                        code = code.substring(0, idx) + code.substring(endIdx + 1);
+                    } else {
+                        break;
+                    }
+                    idx = code.indexOf(searchStr);
+                }
+                return code;
+            }
+
             const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
             rsDirs.forEach(f => {
               if (fs.existsSync(f)) {
                 let code = fs.readFileSync(f, "utf8");
-                code = code.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "");
-                code = code.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "");
-                code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "");
-                code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::new\(\)\.build\(\)\)/g, "");
-                code = code.replace(/\.plugin\(tauri_plugin_window_state::init\(\)\)/g, "");
+                code = removePlugin(code, "tauri_plugin_updater");
+                code = removePlugin(code, "tauri_plugin_process");
+                code = removePlugin(code, "tauri_plugin_window_state");
                 fs.writeFileSync(f, code);
               }
             });
           '
-          echo "¡Parches inyectados en memoria con máxima precisión!"
+          echo "¡Parches inyectados con analizador sintáctico en memoria!"
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
