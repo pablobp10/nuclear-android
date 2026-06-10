@@ -37,12 +37,13 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_upload::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(setup::log_plugin());
 
     if !is_flatpak {
         builder = builder
-            //// Updater disabled for Android
-            //// Process disabled for Android;
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
     }
 
     builder

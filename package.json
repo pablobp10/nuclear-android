@@ -3,6 +3,7 @@
   "version": "0.0.10",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.4",
   "scripts": {
     "dev": "turbo dev --filter=@nuclearplayer/player --filter=@nuclearplayer/ui",
     "dev:remote": "VITE_HOST=0.0.0.0 turbo dev --filter=@nuclearplayer/player --filter=@nuclearplayer/ui",
@@ -44,6 +45,5 @@
   "author": {
     "name": "nukeop <12746779+nukeop@users.noreply.github.com>"
   },
-  "license": "AGPL-3.0-only",
-  "packageManager": "pnpm@10.33.4"
+  "license": "AGPL-3.0-only"
 }

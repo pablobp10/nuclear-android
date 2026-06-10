@@ -29,8 +29,6 @@ struct GitHubRelease {
 }
 
 fn release_filename() -> &'static str {
-    #[cfg(target_os = "android")]
-    return "yt-dlp_linux";
     #[cfg(target_os = "macos")]
     {
         "yt-dlp_macos.zip"
@@ -54,8 +52,6 @@ fn release_filename() -> &'static str {
 }
 
 fn binary_name() -> &'static str {
-    #[cfg(target_os = "android")]
-    return "yt-dlp";
     #[cfg(target_os = "macos")]
     {
         "yt-dlp_macos"
