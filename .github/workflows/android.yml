@@ -42,7 +42,7 @@ jobs:
           npm install -g pnpm@10.33.4
           pnpm install
 
-      - name: 🛠️ Aplicar Parches para Android (Placebos y Fallbacks)
+      - name: 🛠️ Aplicar Parches para Android (Troyanos y Retornos Tempranos)
         run: |
           node -e '
             const fs = require("fs");
@@ -58,7 +58,7 @@ jobs:
               }
             }
 
-            // 2. Whitelist de permisos Android
+            // 2. Whitelist de permisos
             const capsDir = "./packages/player/src-tauri/capabilities";
             const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:"];
             if (fs.existsSync(capsDir)) {
@@ -78,7 +78,7 @@ jobs:
               }
             }
 
-            // 3. Extirpar plugins de escritorio del JSON
+            // 3. Limpiar tauri.conf.json
             const confPath = "./packages/player/src-tauri/tauri.conf.json";
             if (fs.existsSync(confPath)) {
               let conf = JSON.parse(fs.readFileSync(confPath));
@@ -91,7 +91,7 @@ jobs:
               fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
             }
 
-            // 4. Purgar dependencias reales de Rust
+            // 4. Purgar Cargo.toml
             const cargoPath = "./packages/player/src-tauri/Cargo.toml";
             if (fs.existsSync(cargoPath)) {
               let cargo = fs.readFileSync(cargoPath, "utf8");
@@ -101,58 +101,32 @@ jobs:
               fs.writeFileSync(cargoPath, cargo);
             }
 
-            // 5. SOLUCIÓN MAESTRA: Inyectar "Módulos Fantasma" en lib.rs
-            const libPath = "./packages/player/src-tauri/src/lib.rs";
-            if (fs.existsSync(libPath)) {
-              let code = fs.readFileSync(libPath, "utf8");
-              const dummyModules = `
-#[cfg(target_os = "android")]
-pub mod tauri_plugin_window_state {
-    pub struct Builder;
-    impl Builder {
-        pub fn default() -> Self { Self }
-        pub fn new() -> Self { Self }
-        pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_ws").build() }
-    }
-    pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_ws").build() }
-}
-#[cfg(target_os = "android")]
-pub mod tauri_plugin_updater {
-    pub struct Builder;
-    impl Builder {
-        pub fn default() -> Self { Self }
-        pub fn new() -> Self { Self }
-        pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_upd").build() }
-    }
-}
-#[cfg(target_os = "android")]
-pub mod tauri_plugin_process {
-    pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy_proc").build() }
-}
-`;
-              if (!code.includes("dummy_ws")) {
-                fs.writeFileSync(libPath, dummyModules + "\n" + code);
+            // 5. RUST INLINE TROYANO: Cambiamos los plugins prohibidos por plugins vacíos (dummy) nativos
+            const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
+            rsDirs.forEach(f => {
+              if (fs.existsSync(f)) {
+                let code = fs.readFileSync(f, "utf8");
+                // Regex tolerantes a saltos de línea para atrapar exactamente el constructor
+                code = code.replace(/tauri_plugin_window_state\s*::\s*Builder\s*::\s*default\(\)\s*\.\s*build\(\)/g, "tauri::plugin::Builder::new(\"d1\").build()");
+                code = code.replace(/tauri_plugin_window_state\s*::\s*Builder\s*::\s*new\(\)\s*\.\s*build\(\)/g, "tauri::plugin::Builder::new(\"d1\").build()");
+                code = code.replace(/tauri_plugin_window_state\s*::\s*init\(\)/g, "tauri::plugin::Builder::new(\"d1\").build()");
+                
+                code = code.replace(/tauri_plugin_updater\s*::\s*Builder\s*::\s*new\(\)\s*\.\s*build\(\)/g, "tauri::plugin::Builder::new(\"d2\").build()");
+                code = code.replace(/tauri_plugin_process\s*::\s*init\(\)/g, "tauri::plugin::Builder::new(\"d3\").build()");
+                fs.writeFileSync(f, code);
               }
-            }
+            });
 
-            // 6. FIX YT-DLP: Inyectar respuesta para Android
+            // 6. RUST YT-DLP: Inyectar return temprano tolerante a espacios
             const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
             if (fs.existsSync(ytdlpPath)) {
               let code = fs.readFileSync(ytdlpPath, "utf8");
-              const sq = String.fromCharCode(39); // Genera la comilla simple para sortear a Bash
-              
-              const sig1 = "fn release_filename() -> &" + sq + "static str {";
-              const rep1 = sig1 + "\n    #[cfg(target_os=\"android\")] return \"yt-dlp\";";
-              code = code.replace(sig1, rep1);
-              
-              const sig2 = "fn binary_name() -> &" + sq + "static str {";
-              const rep2 = sig2 + "\n    #[cfg(target_os=\"android\")] return \"yt-dlp\";";
-              code = code.replace(sig2, rep2);
-              
+              code = code.replace(/fn\s+release_filename\s*\(\)\s*->\s*&'static\s+str\s*\{/g, "fn release_filename() -> &'static str { return \"yt-dlp\";");
+              code = code.replace(/fn\s+binary_name\s*\(\)\s*->\s*&'static\s+str\s*\{/g, "fn binary_name() -> &'static str { return \"yt-dlp\";");
               fs.writeFileSync(ytdlpPath, code);
             }
           '
-          echo "¡Módulos Fantasma inyectados con éxito!"
+          echo "¡Plugins neutralizados mediante troyanos vacíos y YT-DLP parcheado con retorno temprano!"
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
