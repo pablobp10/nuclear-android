@@ -78,7 +78,7 @@ jobs:
               }
             }
 
-            // 3. Extirpar plugins de escritorio y calmar al Bundler
+            // 3. Extirpar plugins de escritorio del JSON
             const confPath = "./packages/player/src-tauri/tauri.conf.json";
             if (fs.existsSync(confPath)) {
               let conf = JSON.parse(fs.readFileSync(confPath));
@@ -104,28 +104,28 @@ jobs:
               fs.writeFileSync(cargoPath, cargo);
             }
 
-            // 5. FIX: Búsqueda multilínea tolerante para librerías
+            // 5. FIX DEFINITIVO RUST: Búsqueda y destrucción de cadenas literales exactas
             const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
             rsDirs.forEach(f => {
               if (fs.existsSync(f)) {
                 let code = fs.readFileSync(f, "utf8");
-                code = code.replace(/\.plugin\(\s*tauri_plugin_updater[\s\S]*?\.build\(\)\s*\)/g, "");
-                code = code.replace(/\.plugin\(\s*tauri_plugin_process::init\(\)\s*\)/g, "");
-                code = code.replace(/\.plugin\(\s*tauri_plugin_window_state[\s\S]*?\.build\(\)\s*\)/g, "");
-                code = code.replace(/\.plugin\(\s*tauri_plugin_window_state::init\(\)\s*\)/g, "");
+                code = code.split(".plugin(tauri_plugin_window_state::Builder::default().build())").join("");
+                code = code.split(".plugin(tauri_plugin_updater::Builder::new().build())").join("");
+                code = code.split(".plugin(tauri_plugin_process::init())").join("");
                 fs.writeFileSync(f, code);
               }
             });
 
-            // 6. FIX NUEVO: Engañar a yt-dlp para que Android compile como si fuera Linux
+            // 6. FIX YT-DLP: Inyectar compatibilidad con Android
             const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
             if (fs.existsSync(ytdlpPath)) {
               let code = fs.readFileSync(ytdlpPath, "utf8");
-              code = code.replace(/target_os = "linux"/g, "any(target_os = \"linux\", target_os = \"android\")");
+              // Captura target_os="linux" con cualquier espaciado y añade Android
+              code = code.replace(/target_os\s*=\s*"linux"/g, "any(target_os = \"linux\", target_os = \"android\")");
               fs.writeFileSync(ytdlpPath, code);
             }
           '
-          echo "¡Parches inyectados en memoria con soporte Android para yt-dlp!"
+          echo "¡Parches de código exactos aplicados en memoria!"
 
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
