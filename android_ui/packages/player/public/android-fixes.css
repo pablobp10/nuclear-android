@@ -15,95 +15,80 @@ body, #root {
     -webkit-app-region: no-drag !important; 
 }
 
-/* 2. RECONSTRUCCIÓN DEL MODAL DE AJUSTES (MENÚ SUPERIOR Y CONTENIDO INFERIOR) */
+/* 2. RECONSTRUCCIÓN DEL MODAL (CENTRADOS ABSOLUTOS Y EVASIÓN DE FOCUS TRAPS) */
 @media screen and (max-width: 768px) {
     
-    /* A. El Dialogo Principal (Ventana Flotante) */
+    /* A. LA VENTANA: Centrado absoluto en el medio de la pantalla */
     [role="dialog"] {
+        position: fixed !important; /* Anclaje a la pantalla */
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        
         width: 96vw !important;
         max-width: 96vw !important;
         height: 85vh !important;
         max-height: 85vh !important;
-        margin: auto !important;
+        margin: 0 !important;
         
         display: flex !important;
         flex-direction: column !important;
         border-radius: 12px !important;
-        
-        /* Oculta lo que se salga del borde redondeado de la ventana principal */
-        overflow: hidden !important; 
-        
-        /* Escalado proporcional para que todo se vea más nítido y compacto */
+        overflow: hidden !important;
         zoom: 0.85 !important;
     }
 
-    /* B. EL GRAN TRUCO: Convertir la Fila (PC) en Columna (Móvil) */
-    /* Esto es lo que pone el menú arriba y el contenido abajo de forma natural */
-    [role="dialog"] > div {
+    /* B. EL ESQUELETO INTERNO: Ignorar spans y forzar columna */
+    /* div:first-of-type asegura que nos saltamos el nodo invisible de accesibilidad */
+    [role="dialog"] > div:first-of-type {
         display: flex !important;
-        flex-direction: column !important; 
+        flex-direction: column !important; /* Esto manda el menú arriba y contenido abajo */
         width: 100% !important;
         height: 100% !important;
     }
 
-    /* C. EL MENÚ SUPERIOR (Antes lateral) */
-    /* Apuntamos a la etiqueta nav, aside, o al contenedor de los botones */
-    [role="dialog"] nav,
-    [role="dialog"] aside,
-    [role="dialog"] > div > :first-child {
+    /* C. EL MENÚ DE PESTAÑAS (La primera caja real dentro del esqueleto) */
+    [role="dialog"] > div:first-of-type > div:first-of-type {
         display: flex !important;
         flex-direction: row !important; /* Pestañas horizontales */
+        flex: 0 0 auto !important; /* Impide que la barra se encoja */
         
         width: 100% !important;
-        /* flex: 0 0 auto obliga a la barra a mantener su altura y no colapsar */
-        flex: 0 0 auto !important; 
-        height: auto !important;
+        max-width: 100% !important;
         
-        /* Habilitar deslizamiento horizontal */
+        /* Permitir deslizamiento horizontal */
         overflow-x: auto !important;
         overflow-y: hidden !important;
-        white-space: nowrap !important;
         
+        /* Diseño visual */
         border-right: none !important;
         border-bottom: 2px solid rgba(128, 128, 128, 0.2) !important;
-        padding: 12px 8px !important;
-        margin: 0 !important;
+        padding: 8px 12px !important;
     }
 
-    /* Opciones dentro del menú superior (Separación entre botones) */
-    [role="dialog"] nav > *,
-    [role="dialog"] aside > *,
-    [role="dialog"] > div > :first-child > * {
+    /* Evitar aplastamiento de los botones del menú */
+    [role="dialog"] > div:first-of-type > div:first-of-type > * {
         flex: 0 0 auto !important;
         width: fit-content !important;
-        margin-right: 16px !important;
+        margin-right: 12px !important;
     }
 
-    /* D. EL CONTENIDO DE LA PESTAÑA (Resurrección) */
-    /* Apuntamos al contenedor principal o al último bloque de la ventana */
-    [role="dialog"] main,
-    [role="dialog"] > div > :last-child {
+    /* D. EL CONTENIDO DE LA PESTAÑA (La segunda caja real) */
+    [role="dialog"] > div:first-of-type > div:nth-of-type(2) {
         display: flex !important;
-        flex-direction: column !important;
+        flex-direction: column !important; /* Apilamos las opciones de ajustes */
+        flex: 1 1 auto !important; /* Rellena el resto de la ventana hacia abajo */
         
-        /* flex: 1 1 auto obliga al contenido a rellenar TODO el espacio sobrante hacia abajo */
-        flex: 1 1 auto !important; 
         width: 100% !important;
         
-        /* Habilitar deslizamiento vertical para leer todos los ajustes */
+        /* Habilitar scroll vertical */
         overflow-y: auto !important;
         overflow-x: hidden !important;
         padding: 16px !important;
-        
-        /* Aseguramos que vuelva a ser visible */
-        opacity: 1 !important;
-        visibility: visible !important;
-        display: block !important;
     }
 
-    /* E. Evitar que textos muy largos o inputs rompan la pantalla táctil */
-    [role="dialog"] main *,
-    [role="dialog"] > div > :last-child * {
+    /* E. PROTECCIÓN TÁCTIL (Evitar desbordamientos en inputs/textos) */
+    [role="dialog"] > div:first-of-type > div:nth-of-type(2) * {
         white-space: normal !important;
         word-wrap: break-word !important;
         max-width: 100% !important;
