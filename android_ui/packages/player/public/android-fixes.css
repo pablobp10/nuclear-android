@@ -14,68 +14,69 @@ body, #root {
     -webkit-app-region: no-drag !important; 
 }
 
-/* 2. ESTÉTICA DE VENTANA FLOTANTE (ESTRICTAMENTE CONFINADO A LOS AJUSTES/MODALES) */
+/* 2. ESTÉTICA DE VENTANA FLOTANTE (PARCHE SEMANTIC UI MÓVIL) */
 @media screen and (max-width: 768px) {
     
-    /* A. El contenedor del modal flotante */
+    /* A. El Contenedor: Dejamos que el sistema original lo centre, solo forzamos tamaño */
     [role="dialog"], 
     .ui.modal {
         width: 94vw !important;
-        max-width: 94vw !important;
-        height: auto !important; 
-        max-height: 90vh !important;
+        height: 85vh !important; /* Altura fija relativa a la pantalla para evitar el colapso de 3mm */
+        margin: 0 auto !important; 
         
-        margin: 0 !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
+        /* Limpiamos cualquier anclaje absoluto conflictivo */
+        top: auto !important;
+        left: auto !important;
+        bottom: auto !important;
+        transform: none !important;
         
+        /* Lo convertimos en una columna para que el interior no se aplaste */
+        display: flex !important;
+        flex-direction: column !important;
         border-radius: 12px !important;
-        overflow-x: hidden !important; 
-        overflow-y: auto !important;
-        padding: 16px !important; 
     }
 
-    /* B. Desactivar zoom solo en el modal */
-    [role="dialog"] > div,
-    .ui.modal > div {
-        zoom: normal !important; 
-        width: 100% !important;
-        max-width: 100% !important;
+    /* B. El Área de Contenido: Le decimos que ocupe todo el espacio sobrante del 85vh */
+    .ui.modal > .content,
+    [role="dialog"] > .content {
+        flex: 1 1 auto !important; /* Crece para rellenar el modal */
+        overflow-y: auto !important; /* Scroll interno seguro */
+        overflow-x: hidden !important;
+        padding: 16px !important;
     }
 
-    /* C. Textos fluidos solo en el modal */
-    [role="dialog"] *,
-    .ui.modal * {
+    /* C. Textos fluidos */
+    .ui.modal *,
+    [role="dialog"] * {
         white-space: normal !important; 
         word-wrap: break-word !important; 
-        box-sizing: border-box !important;
     }
 
-    /* D. Destrucción de columnas estrechas (AHORA SÍ AISLADAS AL MODAL) */
-    [role="dialog"] [class*="flex" i],
-    [role="dialog"] [class*="row" i],
-    [role="dialog"] [class*="grid" i],
-    .ui.modal [class*="flex" i],
-    .ui.modal [class*="row" i],
-    .ui.modal [class*="grid" i] {
+    /* D. Destrucción del "Grid" de Semantic UI (El verdadero culpable de las columnas estrechas) */
+    .ui.modal .ui.grid,
+    .ui.modal .row,
+    [role="dialog"] .ui.grid,
+    [role="dialog"] .row {
         display: flex !important;
-        flex-wrap: wrap !important;
-        align-items: center !important;
-        gap: 12px !important; 
-        min-width: 0 !important;
+        flex-direction: column !important; /* Rompemos las filas y forzamos verticalidad */
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* E. Botones e inputs en los ajustes */
-    [role="dialog"] input,
-    [role="dialog"] select,
-    [role="dialog"] button,
-    [role="dialog"] .dropdown,
+    /* Forzamos que cada columna individual ocupe el 100% del móvil */
+    .ui.modal .column,
+    [role="dialog"] .column {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important; /* Desactiva el reparto equitativo de PC */
+        padding: 12px 0 !important; /* Espaciado entre opciones */
+    }
+
+    /* E. Aseguramos que los componentes internos fluyan */
     .ui.modal input,
     .ui.modal select,
     .ui.modal button,
     .ui.modal .dropdown {
         max-width: 100% !important;
-        flex-shrink: 1 !important;
     }
 }
