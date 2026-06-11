@@ -150,7 +150,19 @@ jobs:
       - name: 🛠️ Ejecutar Parches
         # FIX: Ejecutamos el archivo con su nueva extensión .cjs
         run: node patch.cjs
-
+        
+      - name: 🛠️ Aplicar UI de Android (Arquitectura Shadowing)
+        run: |
+          # Comprueba si has creado la carpeta de superposición
+          if [ -d "android_ui" ]; then
+            # Copia recursivamente preservando atributos. 
+            # El punto final asegura que se copie el contenido, no la carpeta en sí.
+            cp -a android_ui/. ./
+            echo "¡Archivos de UI personalizados inyectados con éxito en la RAM!"
+          else
+            echo "No se detectó carpeta 'android_ui'. Se utilizará la UI de escritorio original."
+          fi
+          
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
 
