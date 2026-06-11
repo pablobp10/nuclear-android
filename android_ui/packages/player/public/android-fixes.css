@@ -1,79 +1,55 @@
-/* PARCHE DE INTERFAZ MÓVIL PARA NUCLEAR PLAYER (v2.0) */
+/* PARCHE DE INTERFAZ MÓVIL PARA NUCLEAR PLAYER (v3.0 - Conservador) */
 
-/* 1. AJUSTE DE ALTURA EXACTA (NOTCH) */
+/* 1. ELIMINAR EL HUECO Y RECUPERAR LA BARRA SUPERIOR */
 body, #root {
-    /* Reducimos el fallback a 8px para evitar el doble margen masivo */
-    padding-top: env(safe-area-inset-top, 8px) !important;
-    padding-bottom: env(safe-area-inset-bottom, 8px) !important;
+    /* Quitamos el padding masivo del fondo */
+    padding: 0 !important;
     overscroll-behavior-y: none;
     overflow-x: hidden;
 }
 
-/* Ocultar la barra de arrastre/título nativa de escritorio si existe */
+/* Usamos la propia barra superior original para absorber el Notch de Android */
 [data-tauri-drag-region], .titlebar, .window-controls {
-    display: none !important;
-    height: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    display: flex !important; /* Resucitamos la barra */
+    padding-top: env(safe-area-inset-top, 24px) !important;
+    height: auto !important;
+    /* Anulamos la función de arrastre de escritorio para que no interfiera al tocar */
+    -webkit-app-region: no-drag !important; 
 }
 
-/* 2. RECONSTRUCCIÓN DE MODALES Y MENÚS */
+/* 2. ESCALADO CORRECTO DE AJUSTES Y MENÚS */
 @media screen and (max-width: 768px) {
     
-    /* A. Pantalla completa absoluta para los menús (100%) */
+    /* El contenedor principal del menú */
     [role="dialog"], 
     [class*="modal" i], 
-    [class*="Settings" i],
     .ui.modal {
-        width: 100vw !important;
-        max-width: 100vw !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        transform: none !important; /* Anula el posicionado centrado absoluto del PC */
-        display: flex !important;
-        flex-direction: column !important; /* Flujo principal vertical */
-        overflow-y: auto !important; /* Permite scroll interno si es muy largo */
+        /* Le damos el 96% de la pantalla para que respire por los bordes */
+        width: 96vw !important;
+        max-width: 96vw !important;
+        height: 90vh !important;
+        max-height: 90vh !important;
+        
+        margin: auto !important; 
+        top: 5vh !important;
+        
+        /* Fundamental: si algo sobresale, permitir deslizar el dedo (scroll) */
+        overflow-x: auto !important; 
+        overflow-y: auto !important;
     }
 
-    /* B. Destrucción de columnas estrechas -> Apilamiento vertical */
-    /* Buscamos cualquier Grid o fila dentro de los ajustes y lo rompemos a columna */
-    [role="dialog"] [class*="grid" i], 
-    [role="dialog"] [class*="flex" i],
-    [role="dialog"] [class*="row" i],
+    /* EL TRUCO DEL ZOOM: 
+       En lugar de destruir las columnas de escritorio, encogemos todo el 
+       interior del modal un 20% para que quepa en la pantalla del móvil */
+    [role="dialog"] > div,
     [class*="modal" i] > div,
-    [class*="column" i] {
-        display: flex !important;
-        flex-direction: column !important;
-        width: 100% !important;
-        min-width: 100% !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
+    .settings-container,
+    .content {
+        zoom: 0.8; 
     }
 
-    /* C. Ancho total para todos los sub-contenedores */
-    [role="dialog"] * {
-        box-sizing: border-box !important;
-        max-width: 100vw !important;
-    }
-
-    /* D. Ergonomía táctil para que se pueda pulsar fácilmente */
-    p, span, div, label { 
-        font-size: 105%; 
-    }
-    
-    button, a, input {
-        min-height: 48px !important; /* Aún más grande para el dedo */
-        margin-bottom: 8px !important;
-    }
-    
-    /* Los botones en menús deben ocupar todo el ancho para ser accesibles */
-    [role="dialog"] button {
-        width: 100% !important;
+    /* Ergonomía: aseguramos que lo único grande sean los botones */
+    button {
+        min-height: 40px;
     }
 }
