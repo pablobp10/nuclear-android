@@ -20,106 +20,102 @@ body, #root {
 }
 
 /* ==========================================================================
-   2. RECONSTRUCCIÓN DEL MODAL DE AJUSTES (ALINEACIÓN PERFECTA)
+   2. RECONSTRUCCIÓN DEL MODAL (BYPASS AL DOM Y CLASES TAILWIND)
    ========================================================================== */
 @media screen and (max-width: 768px) {
     
-    /* A. EL DIÁLOGO CONTENEDOR PRINCIPAL */
+    /* A. LA VENTANA PRINCIPAL */
     [role="dialog"] {
         display: flex !important;
         flex-direction: column !important;
         
-        /* SOLUCIÓN AL FONDO NEGRO: Obliga a los hijos internos a tocar los bordes laterales */
-        align-items: stretch !important; 
-        justify-content: flex-start !important;
-        
-        /* Aseguramos que el cuadro no tenga márgenes invisibles que rompan el tamaño */
-        padding: 0 !important;
-        box-sizing: border-box !important;
-        
         width: 96vw !important;
         max-width: 96vw !important;
-        height: 84vh !important;
-        max-height: 84vh !important;
+        height: 85vh !important;
+        max-height: 85vh !important;
         
-        border-radius: 14px !important;
+        padding: 0 !important;
+        margin: auto !important;
+        box-sizing: border-box !important;
+        
+        /* Esto recorta matemáticamente cualquier sombra o fondo negro sobrante */
+        overflow: hidden !important; 
+        
+        border-radius: 12px !important;
         background-color: #0d0e11 !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         
         position: fixed !important;
         top: 50% !important; left: 50% !important;
         transform: translate(-50%, -50%) !important;
-        
         zoom: 0.90 !important;
     }
 
-    /* B. DESTRUCCIÓN DEL BOTÓN DE CERRAR ("X") */
-    /* Target directo al botón suelto en la raíz del diálogo para ocultarlo */
-    [role="dialog"] > button {
+    /* B. ANIQUILACIÓN DEL BOTÓN DE CERRAR ("X") */
+    /* Radix UI inyecta este botón con la clase "absolute". Lo fulminamos. */
+    [role="dialog"] button[class*="absolute"] {
         display: none !important;
     }
 
     /* C. LA BARRA DE NAVEGACIÓN SUPERIOR */
-    [role="dialog"] nav {
+    /* Buscamos textualmente la clase "w-56" que vimos en tu archivo React */
+    [role="dialog"] nav[class*="w-56"] {
         display: flex !important;
         flex-direction: column !important;
         
-        /* Aseguramos que se pegue a la izquierda y mida el 100% exacto */
         width: 100% !important;
-        margin: 0 !important;
-        box-sizing: border-box !important; /* Evita que el padding la empuje a la derecha */
+        max-width: 100% !important;
+        height: auto !important;
         
-        padding: 8px 8px 0px 8px !important;
+        /* Flex-shrink a 0 evita que el menú se aplaste si el contenido es muy largo */
+        flex-shrink: 0 !important; 
+        
+        box-sizing: border-box !important;
+        padding: 8px !important;
+        margin: 0 !important;
+        
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
 
-    /* El carril deslizable de las pestañas */
-    [role="dialog"] nav > div {
+    /* El contenedor de las pestañas deslizables */
+    [role="dialog"] nav[class*="w-56"] > div {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        justify-content: flex-start !important; /* Pega los botones estrictamente a la izquierda */
-        
         overflow-x: auto !important;
         overflow-y: hidden !important;
         gap: 8px !important;
-        padding-bottom: 8px !important;
         width: 100% !important;
     }
 
-    /* D. LOS BOTONES DE LAS PESTAÑAS */
+    /* Los botones de las pestañas */
     [role="dialog"] nav button {
         flex: 0 0 auto !important;
         width: fit-content !important;
-        padding: 6px 12px !important;
-        font-size: 0.85rem !important;
-        border-radius: 20px !important;
-        margin: 0 !important; /* Elimina cualquier empuje lateral extraño */
     }
 
-    /* E. EL CONTENEDOR DE CONTENIDO (La zona de las opciones) */
-    [role="dialog"] .flex-1,
-    [role="dialog"] nav + div {
+    /* D. EL CONTENEDOR DEL CONTENIDO (Donde están las opciones) */
+    /* Buscamos textualmente la clase "flex-1" de tu archivo React */
+    [role="dialog"] div[class*="flex-1"] {
         display: flex !important;
         flex-direction: column !important;
         
-        /* SOLUCIÓN AL DESPLAZAMIENTO A LA DERECHA: El border-box calcula el padding hacia adentro */
-        box-sizing: border-box !important;
+        /* Obligamos a que ocupe el 100% del ancho y todo el sobrante del alto */
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 1 1 100% !important;
         
-        flex: 1 1 100% !important; /* Expansión vertical absoluta hacia el fondo */
-        width: 100% !important;    /* Expansión horizontal absoluta */
+        box-sizing: border-box !important;
         margin: 0 !important;
+        padding: 16px !important;
         
         overflow-y: auto !important;
         overflow-x: hidden !important;
-        padding: 16px !important;
     }
 
-    /* F. TEXTOS FLUÍDOS */
-    [role="dialog"] .flex-1 p,
-    [role="dialog"] .flex-1 span,
-    [role="dialog"] .flex-1 label {
+    /* E. PROTECCIÓN DE TEXTOS PARA QUE NO DESBORDEN */
+    [role="dialog"] div[class*="flex-1"] * {
+        max-width: 100% !important;
         white-space: normal !important;
         word-wrap: break-word !important;
     }
