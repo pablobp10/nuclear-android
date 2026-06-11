@@ -169,6 +169,7 @@ jobs:
       - name: Construir y Compilar APK (Tauri Android - DEBUG)
         run: |
           cd packages/player
+          rm -rf src-tauri/gen/android
           
           # 1. Reemplazamos el icono base de escritorio
           cp public/logo-icon-on-white.png src-tauri/icons/icon.png
