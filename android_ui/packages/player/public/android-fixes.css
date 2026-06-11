@@ -17,39 +17,71 @@ body, #root {
     -webkit-app-region: no-drag !important; 
 }
 
-/* 2. ESCALADO CORRECTO DE AJUSTES Y MENÚS */
+/* 2. ESTÉTICA DE VENTANA FLOTANTE MAXIMIZADA Y FLUIDA */
 @media screen and (max-width: 768px) {
     
-    /* El contenedor principal del menú */
+    /* A. El Modal: Casi toda la pantalla, pero centrado y flotante */
     [role="dialog"], 
     [class*="modal" i], 
     .ui.modal {
-        /* Le damos el 96% de la pantalla para que respire por los bordes */
-        width: 96vw !important;
-        max-width: 96vw !important;
-        height: 90vh !important;
+        /* Tamaño casi máximo, dejando un margen estético del 3% a cada lado */
+        width: 94vw !important;
+        max-width: 94vw !important;
+        /* La altura se adapta al contenido, pero sin salirse del 90% de la pantalla */
+        height: auto !important; 
         max-height: 90vh !important;
         
-        margin: auto !important; 
-        top: 5vh !important;
+        /* Centrado absoluto perfecto en el medio de la pantalla */
+        margin: 0 !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
         
-        /* Fundamental: si algo sobresale, permitir deslizar el dedo (scroll) */
-        overflow-x: auto !important; 
+        /* Estética: recuperamos los bordes redondeados suaves */
+        border-radius: 12px !important;
+        
+        /* Scroll interno activado solo si el contenido es más alto que el 90vh */
+        overflow-x: hidden !important; 
         overflow-y: auto !important;
+        
+        padding: 16px !important; 
     }
 
-    /* EL TRUCO DEL ZOOM: 
-       En lugar de destruir las columnas de escritorio, encogemos todo el 
-       interior del modal un 20% para que quepa en la pantalla del móvil */
+    /* B. Desactivar "Zoom" y ajustar contenedores internos */
     [role="dialog"] > div,
     [class*="modal" i] > div,
     .settings-container,
-    .content {
-        zoom: 0.8; 
+    .content,
+    [class*="setting" i] {
+        zoom: normal !important; 
+        width: 100% !important;
+        max-width: 100% !important;
     }
 
-    /* Ergonomía: aseguramos que lo único grande sean los botones */
-    button {
-        min-height: 40px;
+    /* C. Envoltura de texto fluida (rompe las cajas gigantes) */
+    [role="dialog"] * {
+        white-space: normal !important; 
+        word-wrap: break-word !important; 
+        box-sizing: border-box !important;
+    }
+
+    /* D. Flexbox Inteligente: Agrupa textos e interruptores suavemente */
+    [role="dialog"] [class*="flex" i],
+    [role="dialog"] [class*="row" i],
+    [class*="grid" i] {
+        display: flex !important;
+        flex-wrap: wrap !important; /* Salta de línea si chocan los elementos */
+        align-items: center !important; /* Centrado vertical entre texto y botón */
+        gap: 12px !important; 
+        min-width: 0 !important;
+    }
+
+    /* E. Contención de inputs y botones */
+    [role="dialog"] input,
+    [role="dialog"] select,
+    [role="dialog"] button,
+    [role="dialog"] .dropdown {
+        max-width: 100% !important;
+        flex-shrink: 1 !important;
     }
 }
