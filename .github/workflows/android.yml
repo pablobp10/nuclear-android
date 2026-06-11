@@ -190,4 +190,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Nuclear-Player-APK
-          path: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          path: packages/player/src-tauri/gen/android/**/*.apk
