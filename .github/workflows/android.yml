@@ -62,7 +62,8 @@ jobs:
 
           // 2. Whitelist de permisos Android
           const capsDir = "./packages/player/src-tauri/capabilities";
-          const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:"];
+          // FIX: Añadimos "http:" y "network:" para permitir que la tienda descargue módulos
+          const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
             const files = fs.readdirSync(capsDir).filter(f => f.endsWith(".json"));
             for (const file of files) {
@@ -78,7 +79,6 @@ jobs:
                 }
               } catch(e) {}
             }
-            console.log("✔️ Permisos saneados");
           }
 
           // 3. Extirpar plugins de escritorio de tauri.conf
