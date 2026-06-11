@@ -1,86 +1,80 @@
-/* PARCHE DE INTERFAZ MÓVIL PARA NUCLEAR PLAYER (v3.0 - Conservador) */
+/* PARCHE DE INTERFAZ MÓVIL PARA NUCLEAR PLAYER (v4.0 - Aislado) */
 
-/* 1. ELIMINAR EL HUECO Y RECUPERAR LA BARRA SUPERIOR */
+/* 1. MANTENER LA UI PRINCIPAL INTACTA Y ABSORBER EL NOTCH */
 body, #root {
-    /* Quitamos el padding masivo del fondo */
     padding: 0 !important;
     overscroll-behavior-y: none;
     overflow-x: hidden;
 }
 
-/* Usamos la propia barra superior original para absorber el Notch de Android */
 [data-tauri-drag-region], .titlebar, .window-controls {
-    display: flex !important; /* Resucitamos la barra */
+    display: flex !important;
     padding-top: env(safe-area-inset-top, 24px) !important;
     height: auto !important;
-    /* Anulamos la función de arrastre de escritorio para que no interfiera al tocar */
     -webkit-app-region: no-drag !important; 
 }
 
-/* 2. ESTÉTICA DE VENTANA FLOTANTE MAXIMIZADA Y FLUIDA */
+/* 2. ESTÉTICA DE VENTANA FLOTANTE (ESTRICTAMENTE CONFINADO A LOS AJUSTES/MODALES) */
 @media screen and (max-width: 768px) {
     
-    /* A. El Modal: Casi toda la pantalla, pero centrado y flotante */
+    /* A. El contenedor del modal flotante */
     [role="dialog"], 
-    [class*="modal" i], 
     .ui.modal {
-        /* Tamaño casi máximo, dejando un margen estético del 3% a cada lado */
         width: 94vw !important;
         max-width: 94vw !important;
-        /* La altura se adapta al contenido, pero sin salirse del 90% de la pantalla */
         height: auto !important; 
         max-height: 90vh !important;
         
-        /* Centrado absoluto perfecto en el medio de la pantalla */
         margin: 0 !important;
         top: 50% !important;
         left: 50% !important;
         transform: translate(-50%, -50%) !important;
         
-        /* Estética: recuperamos los bordes redondeados suaves */
         border-radius: 12px !important;
-        
-        /* Scroll interno activado solo si el contenido es más alto que el 90vh */
         overflow-x: hidden !important; 
         overflow-y: auto !important;
-        
         padding: 16px !important; 
     }
 
-    /* B. Desactivar "Zoom" y ajustar contenedores internos */
+    /* B. Desactivar zoom solo en el modal */
     [role="dialog"] > div,
-    [class*="modal" i] > div,
-    .settings-container,
-    .content,
-    [class*="setting" i] {
+    .ui.modal > div {
         zoom: normal !important; 
         width: 100% !important;
         max-width: 100% !important;
     }
 
-    /* C. Envoltura de texto fluida (rompe las cajas gigantes) */
-    [role="dialog"] * {
+    /* C. Textos fluidos solo en el modal */
+    [role="dialog"] *,
+    .ui.modal * {
         white-space: normal !important; 
         word-wrap: break-word !important; 
         box-sizing: border-box !important;
     }
 
-    /* D. Flexbox Inteligente: Agrupa textos e interruptores suavemente */
+    /* D. Destrucción de columnas estrechas (AHORA SÍ AISLADAS AL MODAL) */
     [role="dialog"] [class*="flex" i],
     [role="dialog"] [class*="row" i],
-    [class*="grid" i] {
+    [role="dialog"] [class*="grid" i],
+    .ui.modal [class*="flex" i],
+    .ui.modal [class*="row" i],
+    .ui.modal [class*="grid" i] {
         display: flex !important;
-        flex-wrap: wrap !important; /* Salta de línea si chocan los elementos */
-        align-items: center !important; /* Centrado vertical entre texto y botón */
+        flex-wrap: wrap !important;
+        align-items: center !important;
         gap: 12px !important; 
         min-width: 0 !important;
     }
 
-    /* E. Contención de inputs y botones */
+    /* E. Botones e inputs en los ajustes */
     [role="dialog"] input,
     [role="dialog"] select,
     [role="dialog"] button,
-    [role="dialog"] .dropdown {
+    [role="dialog"] .dropdown,
+    .ui.modal input,
+    .ui.modal select,
+    .ui.modal button,
+    .ui.modal .dropdown {
         max-width: 100% !important;
         flex-shrink: 1 !important;
     }
