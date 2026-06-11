@@ -19,138 +19,104 @@ body, #root {
     -webkit-app-region: no-drag !important; 
 }
 
-/* --------------------------------------------------------------------------
-   2. CONTROL TOTAL DE LA VENTANA DE AJUSTES (EL CUADRO FLOTANTE)
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   2. RECONSTRUCCIÓN DEL MODAL (ATAQUE ESTRUCTURAL PURO)
+   ========================================================================== */
 @media screen and (max-width: 768px) {
     
+    /* A. LA VENTANA PRINCIPAL */
     [role="dialog"] {
-        /* POSICIÓN: Mantiene la ventana flotando en el centro exacto de la pantalla móviles */
         position: fixed !important;
-        top: 50% !important;        /* <- UBICACIÓN VERTICAL: 50% es el centro exacto de la pantalla */
-        left: 50% !important;       /* <- UBICACIÓN HORIZONTAL: 50% es el centro exacto de la pantalla */
-        transform: translate(-50%, -50%) !important; /* <- CENTRADO MATEMÁTICO ABSOLUTO: No tocar */
+        top: 50% !important; left: 50% !important;
+        transform: translate(-50%, -50%) !important;
         
-        /* DIMENSIONES DE LA VENTANA: Modifica estos valores para cambiar el tamaño del cuadro */
-        width: 95vw !important;     /* <- ANCHO: 95vw significa 95% del ancho de tu pantalla móvil */
-        max-width: 95vw !important; 
-        height: 82vh !important;    /* <- ALTO: 82vh significa 82% del alto de tu pantalla móvil */
-        max-height: 82vh !important;
-        
-        /* ESTÉTICA DE LA VENTANA */
         display: flex !important;
-        flex-direction: column !important; /* <- FUERZA APILAMIENTO: Asegura menú arriba y contenido abajo */
-        border-radius: 14px !important;    /* <- BORDES REDONDEADOS: Más alto el número = más redondo (ej: 20px) */
-        background-color: #111111 !important; /* <- COLOR DE FONDO: Fuerza un color oscuro sólido para evitar transparencias */
-        border: 1px solid rgba(255, 255, 255, 0.1) !important; /* <- BORDE: Línea sutil gris alrededor de la ventana */
+        flex-direction: column !important;
         
-        /* ESCALADO/ZOOM: Controla el tamaño de todo lo que esté dentro de los ajustes */
-        zoom: 0.90 !important;      /* <- ZOOM GENERAL: 0.90 hace todo un 10% más pequeño. Súbelo a 1.00 si lo ves muy chiquito */
+        width: 96vw !important;
+        max-width: 96vw !important;
+        height: 85vh !important;
+        max-height: 85vh !important;
+        
+        padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        
+        border-radius: 12px !important;
+        background-color: #0d0e11 !important;
+        overflow: hidden !important;
+        zoom: 0.90 !important;
     }
 
-    /* --------------------------------------------------------------------------
-       3. DESMONTAJE DEL DISEÑO ESTRECHO DE PC (FUERZA DE ANCHO COMPLETO)
-       -------------------------------------------------------------------------- */
-    /* Obligamos a TODOS los contenedores intermedios de Tailwind a ocupar el 100% del cuadro */
-    [role="dialog"] div, 
-    [role="dialog"] form, 
-    [role="dialog"] section {
+    /* B. EL ENVOLTORIO INVISIBLE (La clave del fallo) */
+    /* Forzamos a que cualquier contenedor padre directo también sea una columna */
+    [role="dialog"] > div {
         display: flex !important;
-        flex-direction: column !important; /* <- Convierte las filas de PC en columnas móviles */
-        width: 100% !important;            /* <- SOLUCIÓN AL ANCHO ESTRECHO: Fuerza el 100% de la ventana */
-        max-width: 100% !important;
-        height: auto !important;
-    }
-
-    /* --------------------------------------------------------------------------
-       4. PARCHE PARA EL MENÚ (CONVERTIR EN PESTAÑAS HORIZONTALES SUPERIORES)
-       -------------------------------------------------------------------------- */
-    /* Target directo a cualquier sistema de navegación o barra lateral dentro del diálogo */
-    [role="dialog"] [role="tablist"],
-    [role="dialog"] nav,
-    [role="dialog"] aside,
-    [role="dialog"] [class*="menu" i],
-    [role="dialog"] [class*="sidebar" i] {
-        display: flex !important;
-        flex-direction: row !important;    /* <- ¡OBLIGA AL MENÚ A SER HORIZONTAL! */
+        flex-direction: column !important; /* ¡Adiós al modo fila! */
         width: 100% !important;
         max-width: 100% !important;
-        height: auto !important;
+        height: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* C. LA BARRA DE NAVEGACIÓN (Atacamos a la etiqueta <nav>) */
+    [role="dialog"] nav {
+        display: flex !important;
+        flex-direction: column !important;
         
-        /* DESLIZAMIENTO: Permite mover el dedo a los lados (scroll horizontal) si las pestañas no caben */
-        overflow-x: auto !important;       
+        /* IMPEDIMOS EL RECTÁNGULO DERECHO FORZANDO EL ANCHO TOTAL */
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important; 
+        
+        flex: 0 0 auto !important; /* No se aplasta verticalmente */
+        box-sizing: border-box !important;
+        
+        padding: 8px !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* El carril de pestañas deslizable (dentro del nav) */
+    [role="dialog"] nav > div {
+        display: flex !important;
+        flex-direction: row !important;
+        width: 100% !important;
+        overflow-x: auto !important;
         overflow-y: hidden !important;
-        white-space: nowrap !important;    /* <- EVITA SALTOS DE LÍNEA: Las pestañas se quedan en una sola línea recta */
-        
-        /* ESTÉTICA DE LA BARRA DE PESTAÑAS */
-        border-right: none !important;     /* Quita la línea divisoria vertical de PC */
-        border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important; /* <- LÍNEA HORIZONTAL debajo del menú */
-        padding: 8px 4px !important;       /* <- ESPACIADO INTERNO: Margen dentro de la barra de pestañas */
-        margin-bottom: 14px !important;    /* <- MARGEN INFERIOR: Separación entre el menú y las opciones de abajo */
+        gap: 8px !important;
     }
 
-    /* Ajuste de los botones individuales de las pestañas para que no se estiren */
-    [role="dialog"] [role="tab"],
-    [role="dialog"] nav > *,
-    [role="dialog"] aside > *,
-    [role="dialog"] [class*="menu" i] > *,
-    [role="dialog"] [class*="sidebar" i] > * {
-        flex: 0 0 auto !important;         /* <- ANTI-ESTIRAMIENTO: Evita que el botón ocupe toda la pantalla */
-        width: fit-content !important;     /* <- ANCHO JUSTO: El botón mide exactamente lo que mide su texto */
-        padding: 8px 14px !important;      /* <- TAMAÑO DEL BOTÓN: Relleno interno (Arriba/Abajo e Izquierda/Derecha) */
-        margin-right: 6px !important;      /* <- SEPARACIÓN: Espacio libre entre una pestaña y la siguiente */
-    }
-
-    /* --------------------------------------------------------------------------
-       5. PARCHE PARA EL CONTENIDO (EL PANEL DE OPCIONES DE CONFIGURACIÓN)
-       -------------------------------------------------------------------------- */
-    /* Apuntamos al contenedor donde se muestran los interruptores y selectores */
-    [role="dialog"] [role="tabpanel"],
-    [role="dialog"] main,
-    [role="dialog"] [class*="content" i] {
+    /* D. EL CONTENIDO DE LAS OPCIONES */
+    /* Seleccionamos cualquier <div> que sea hermano y vaya después del <nav> */
+    [role="dialog"] nav ~ div {
         display: flex !important;
-        flex-direction: column !important; /* Las opciones se apilan una debajo de otra */
-        flex: 1 1 auto !important;         /* <- RELLENO DINÁMICO: Estira el panel para ocupar todo el alto libre hasta el fondo */
+        flex-direction: column !important;
+        
+        /* ANCHO TOTAL OBLIGATORIO */
         width: 100% !important;
         max-width: 100% !important;
+        min-width: 100% !important;
         
-        /* SCROLL VERTICAL: Activa el deslizamiento hacia abajo para leer todos los ajustes */
-        overflow-y: auto !important;       
+        /* Crece hacia abajo ocupando todo lo que queda de la ventana */
+        flex: 1 1 auto !important; 
+        
+        padding: 16px !important;
+        overflow-y: auto !important;
         overflow-x: hidden !important;
-        padding: 12px !important;          /* <- MARGEN INTERNO: Separación para que las opciones no toquen el borde del cuadro */
+        box-sizing: border-box !important;
     }
 
-    /* FILAS DE AJUSTES INDIVIDUALES: Ajusta el texto a la izquierda y el botón a la derecha */
-    [role="tabpanel"] > div,
-    [class*="content" i] > div,
-    [role="dialog"] [class*="setting" i] {
-        display: flex !important;
-        flex-direction: row !important;    /* <- Pone el Nombre del ajuste a la izquierda y su Interruptor a la derecha */
-        flex-wrap: wrap !important;        /* <- FLUIDO: Si el móvil es muy estrecho, el botón baja para no romper el diseño */
-        justify-content: space-between !important; /* <- SEPARACIÓN MAXIMA: Empuja el texto a la izquierda y el botón a la derecha */
-        align-items: center !important;    /* Centrado vertical perfecto entre el texto y el interruptor */
-        width: 100% !important;
-        padding: 14px 0 !important;        /* <- DISTANCIA ENTRE AJUSTES: Espacio libre entre una opción y otra */
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important; /* <- LÍNEA DIVISORIA sutil entre ajustes */
-    }
-
-    /* --------------------------------------------------------------------------
-       6. TEXTOS, SELECCIONES E INPUTS (ANTI-DESBORDAMIENTO TÁCTIL)
-       -------------------------------------------------------------------------- */
-    [role="dialog"] p, 
-    [role="dialog"] span, 
-    [role="dialog"] label,
-    [role="dialog"] h1, [role="dialog"] h2 {
-        white-space: normal !important;    /* <- PERMITE SALTO DE LÍNEA: Si la explicación del ajuste es larga, baja y no se corta */
-        word-wrap: break-word !important; 
-        font-size: 0.95rem !important;     /* <- TAMAÑO DE LA LETRA de las descripciones */
-    }
-
-    [role="dialog"] input, 
-    [role="dialog"] select, 
-    [role="dialog"] .dropdown {
-        width: auto !important;            /* Evita que los selectores se estiren a lo ancho de forma fea */
+    /* E. PROTECCIÓN DE TEXTOS */
+    [role="dialog"] nav ~ div * {
         max-width: 100% !important;
-        min-height: 38px !important;       /* <- ALTURA TÁCTIL MÍNIMA para que sea cómodo pulsar las opciones */
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+
+    /* F. ANIQUILACIÓN DEL BOTÓN DE CERRAR ("X") */
+    [role="dialog"] button[class*="absolute"] {
+        display: none !important;
     }
 }
