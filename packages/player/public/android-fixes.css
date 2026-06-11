@@ -1,0 +1,41 @@
+/* PARCHE DE INTERFAZ MÓVIL PARA NUCLEAR PLAYER */
+
+/* 1. SOLUCIÓN A LA SUPERPOSICIÓN DE LA BARRA DE NOTIFICACIONES */
+body, #root {
+    /* env() lee los sensores de Android para saber cuánto mide el notch/cámara */
+    padding-top: env(safe-area-inset-top, 30px) !important;
+    padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+    
+    /* Bloquea el efecto rebote molesto al hacer scroll */
+    overscroll-behavior-y: none;
+    overflow-x: hidden;
+}
+
+/* 2. SOLUCIÓN A LOS MENÚS ESTRECHOS */
+@media screen and (max-width: 768px) {
+    /* Forzamos que los contenedores ocupen el 100% del ancho de la pantalla móvil */
+    [role="dialog"], 
+    [class*="modal" i], 
+    [class*="menu" i], 
+    [class*="sidebar" i],
+    [class*="popup" i] {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        left: 0 !important;
+        right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    /* Evitamos que los textos se vean microscópicos */
+    p, span, div {
+        font-size: 105%;
+    }
+
+    /* Agrandamos las áreas táctiles (Botones, links, sliders) */
+    button, a, input[type="range"] {
+        min-height: 44px !important;
+        min-width: 44px !important;
+    }
+}
