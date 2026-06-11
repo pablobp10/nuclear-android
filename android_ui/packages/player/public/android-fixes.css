@@ -19,56 +19,92 @@ body, #root {
     -webkit-app-region: no-drag !important; 
 }
 
-/* 2. RECONSTRUCCIÓN EXACTA DEL PANEL DE AJUSTES (BASADO EN EL CÓDIGO FUENTE) */
+/* ==========================================================================
+   2. RECONSTRUCCIÓN DEL MODAL DE AJUSTES (CON CONTROL NUMÉRICO COMENTADO)
+   ========================================================================== */
 @media screen and (max-width: 768px) {
     
-    /* A. DialogRoot: Convertimos la fila principal en una columna vertical */
+    /* A. EL DIÁLOGO CONTENEDOR PRINCIPAL (DialogRoot) */
     [role="dialog"] {
-        flex-direction: column !important; /* Destruye el diseño de fila de PC */
-        width: 95vw !important;            /* Anulamos el w-[80vw] de Tailwind */
-        max-width: 95vw !important;
-        height: 85vh !important;           /* Anulamos el h-[80vh] */
-        max-height: 85vh !important;
-        border-radius: 16px !important;    /* Bordes estéticos de móvil */
+        display: flex !important;          /* <- OBLIGATORIO: Activa el diseño flexible. No eliminar */
+        flex-direction: column !important; /* <- OBLIGATORIO: Pone el menú arriba y el contenido abajo */
         
-        /* Centrado absoluto */
-        margin: auto !important;
+        /* DIMENSIONES DE LA VENTANA (Modifica estos valores para cambiar el tamaño del cuadro) */
+        width: 96vw !important;            /* <- ANCHO: 96vw = 96% del ancho total de la pantalla de tu móvil */
+        max-width: 96vw !important;
+        height: 84vh !important;           /* <- ALTO: 84vh = 84% del alto total de la pantalla de tu móvil */
+        max-height: 84vh !important;
+        
+        /* ESTÉTICA Y BORDES */
+        border-radius: 14px !important;    /* <- BORDES REDONDEADOS: Más alto el número = más redondo (ej: 20px) */
+        background-color: #0d0e11 !important; /* <- FONDO: Color oscuro sólido para tapar la app de fondo */
+        border: 1px solid rgba(255, 255, 255, 0.1) !important; /* <- LINEA DE BORDE: Grosor y opacidad del borde gris */
+        
+        /* POSICIONAMIENTO EN EL CENTRO DE LA PANTALLA MÓVIL */
         position: fixed !important;
-        top: 50% !important; left: 50% !important;
-        transform: translate(-50%, -50%) !important;
+        top: 50% !important;               /* <- COORDENADA VERTICAL: 50% es el centro exacto de la pantalla */
+        left: 50% !important;              /* <- COORDENADA HORIZONTAL: 50% es el centro exacto de la pantalla */
+        transform: translate(-50%, -50%) !important; /* <- ANCLAJE DE CENTRADO: Mantiene el cuadro en el medio */
+        
+        /* ESCALADO/ZOOM MÓVIL */
+        zoom: 0.90 !important;             /* <- ZOOM GENERAL: 0.90 encoge textos y botones un 10% para que quepa más info. 
+                                              Puedes ajustarlo entre 0.85 (más pequeño) y 1.00 (tamaño original de PC) */
     }
 
-    /* B. SettingsPanelNav: La barra lateral de Tailwind (nav.w-56) */
+    /* B. LA BARRA DE NAVEGACIÓN SUPERIOR (SettingsPanelNav) */
     [role="dialog"] nav {
-        width: 100% !important;            /* Anulamos el ancho fijo w-56 (224px) */
+        display: flex !important;
+        flex-direction: column !important; 
+        width: 100% !important;            /* <- ANCHO: Fuerza al menú a ocupar el 100% del ancho superior */
         height: auto !important;
-        border-right: none !important;     /* Quitamos la línea vertical derecha */
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important; /* Ponemos línea horizontal abajo */
-        padding: 8px !important;           /* Reducimos el p-4 original */
+        padding: 8px !important;           /* <- ESPACIADO INTERNO: Margen de aire dentro de la barra de pestañas (ej: 12px) */
+        border-right: none !important;     /* Quita la línea divisoria vertical derecha de escritorio */
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important; /* <- LÍNEA DIVISORIA HORIZONTAL debajo de las pestañas */
     }
 
-    /* C. El div interior del nav (Donde están mapeados los botones) */
-    /* El original es <div className="flex flex-col gap-1"> */
-    [role="dialog"] nav > div.flex-col {
-        flex-direction: row !important;    /* ¡Mágia! De columna a fila (pestañas) */
-        overflow-x: auto !important;       /* Deslizable hacia los lados */
+    /* C. EL CONTENEDOR INTERNO DE LOS BOTONES DEL MENÚ (<div className="flex flex-col gap-1">) */
+    [role="dialog"] nav > div {
+        display: flex !important;
+        flex-direction: row !important;    /* <- ALINEACIÓN: Pone los botones uno al lado del otro en horizontal */
+        flex-wrap: nowrap !important;      /* <- EVITA SALTOS: Impide que las pestañas bajen a la siguiente línea */
+        overflow-x: auto !important;       /* <- SCROLL HORIZONTAL: Permite arrastrar las pestañas a los lados con el dedo */
         overflow-y: hidden !important;
-        flex-wrap: nowrap !important;      /* Impide que los botones salten de línea */
-        gap: 8px !important;
+        gap: 8px !important;               /* <- DISTANCIA ENTRE PESTAÑAS: Espacio libre entre botón y botón (ej: 12px) */
         padding-bottom: 4px !important;
+        width: 100% !important;
     }
 
-    /* D. SettingsPanelNavItem: Los botones de las pestañas */
+    /* D. LOS BOTONES DE LAS PESTAÑAS INDIVIDUALES (SettingsPanelNavItem) */
     [role="dialog"] nav button {
-        flex: 0 0 auto !important;         /* Impide que el botón se aplaste */
-        width: fit-content !important;     /* Se ajusta exactamente al texto */
-        border-radius: 20px !important;    /* Estética de "píldora" para las pestañas */
+        flex: 0 0 auto !important;         /* <- ANTI-COMPRESIÓN: Impide que los botones se deformen o aplasten */
+        width: fit-content !important;     /* <- ANCHO FLEXIBLE: Cada botón mide exactamente lo que ocupe su texto */
+        padding: 6px 12px !important;      /* <- RELLENO DEL BOTÓN: Aire arriba/abajo (6px) e izquierda/derecha (12px) */
+        font-size: 0.85rem !important;     /* <- TAMAÑO DE FUENTE: Tamaño de la letra de las pestañas */
+        border-radius: 20px !important;    /* <- REDONDEADO BOTÓN: Forma de píldora moderna para los botones del menú */
     }
 
-    /* E. SettingsPanelContent: El contenedor de las opciones */
-    /* El original es <div className="flex min-h-0 flex-1 flex-col overflow-hidden"> */
-    [role="dialog"] > div.flex-1 {
-        overflow-y: auto !important;       /* CAMBIO CRÍTICO: De oculto a deslizable hacia abajo */
-        padding: 16px !important;
+    /* E. EL CONTENEDOR DE CONTENIDO (SettingsPanelContent - ¡RECONEXIÓN!) */
+    /* Apuntamos directamente a la clase .flex-1 que el componente tiene incrustada */
+    [role="dialog"] .flex-1,
+    [role="dialog"] nav + div {
+        display: flex !important;          /* <- RESURRECCIÓN: Fuerza al contenedor a volver a ser visible. No eliminar */
+        flex-direction: column !important;
+        flex: 1 1 auto !important;         /* <- EXPANSION: Obliga a esta caja a estirarse hasta tocar el fondo de la ventana */
+        width: 100% !important;            /* <- ANCHO COMPLETO: Soluciona el problema de que se viera estrecho */
+        height: 100% !important;
+        min-height: 0 !important;          /* Evita desbordamientos extraños en motores Chromium */
+        
+        /* SISTEMA DE SCROLL VERTICAL */
+        overflow-y: auto !important;       /* <- SCROLL VERTICAL: Permite deslizar arriba y abajo para leer los ajustes */
+        overflow-x: hidden !important;
+        padding: 16px !important;          /* <- MARGEN INTERNO: Aire para que las opciones no choquen con los bordes */
+    }
+
+    /* F. TEXTOS FLUÍDOS ANTI-DESBORDAMIENTO */
+    [role="dialog"] .flex-1 p,
+    [role="dialog"] .flex-1 span,
+    [role="dialog"] .flex-1 label {
+        white-space: normal !important;    /* <- SALTO DE LÍNEA: Si la descripción de un ajuste es larga, baja renglón */
+        word-wrap: break-word !important;  /* Rompe palabras si exceden la pantalla táctil */
     }
 }
