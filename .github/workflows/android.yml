@@ -43,7 +43,6 @@ jobs:
           pnpm install
 
       - name: 🛠️ Crear script de parcheo infalible
-        # FIX: Guardamos como .cjs para forzar el modo CommonJS y permitir 'require'
         run: |
           cat << 'EOF' > patch.cjs
           const fs = require("fs");
@@ -62,7 +61,6 @@ jobs:
 
           // 2. Whitelist de permisos Android
           const capsDir = "./packages/player/src-tauri/capabilities";
-          // FIX: Añadimos "http:" y "network:" para permitir que la tienda descargue módulos
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
             const files = fs.readdirSync(capsDir).filter(f => f.endsWith(".json"));
@@ -148,15 +146,129 @@ jobs:
           EOF
 
       - name: 🛠️ Ejecutar Parches
-        # FIX: Ejecutamos el archivo con su nueva extensión .cjs
         run: node patch.cjs
-        
+
+      - name: 🛠️ Inyectar Sondas y Parches Táctiles (Debug)
+        run: |
+          # 1. BÚSQUEDA DINÁMICA DEL TYPESCRIPT Y SOBRESCRITURA
+          TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
+          if [ -z "$TS_FILE" ]; then
+            echo "❌ ERROR: No se encontró useInstallPlugin.ts. La compilación fallará."
+            exit 1
+          fi
+          
+          echo "✔️ Archivo TypeScript encontrado en: $TS_FILE. Sobrescribiendo..."
+          
+          cat << 'EOF' > "$TS_FILE"
+          import { useMutation } from '@tanstack/react-query';
+          import { toast } from 'sonner';
+
+          import { useTranslation } from '@nuclearplayer/i18n';
+
+          import {
+            pluginMarketplaceApi,
+            type MarketplacePlugin,
+          } from '../apis/pluginMarketplaceApi';
+          import {
+            cleanupDownload,
+            downloadAndExtractPlugin,
+          } from '../services/plugins/pluginDownloader';
+          import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
+          import { usePluginStore } from '../stores/pluginStore';
+          import { resolveErrorMessage } from '../utils/logging';
+
+          type InstallPluginParams = {
+            plugin: MarketplacePlugin;
+          };
+
+          export const useInstallPlugin = () => {
+            const { t } = useTranslation('plugins');
+            const loadPluginFromPath = usePluginStore((s) => s.loadPluginFromPath);
+            const enablePlugin = usePluginStore((s) => s.enablePlugin);
+
+            return useMutation({
+              mutationFn: async ({ plugin }: InstallPluginParams) => {
+                console.log(`[DEBUG PLUGIN] 1. Iniciando instalación de: ${plugin.id}`);
+
+                const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
+                console.log(`[DEBUG PLUGIN] 2. Release obtenida: URL -> ${release.downloadUrl}`);
+
+                console.log(`[DEBUG PLUGIN] 3. Descargando y extrayendo...`);
+                const extractedPath = await downloadAndExtractPlugin({
+                  pluginId: plugin.id,
+                  downloadUrl: release.downloadUrl,
+                });
+                console.log(`[DEBUG PLUGIN] 4. Extraído correctamente en: ${extractedPath}`);
+
+                try {
+                  const now = new Date().toISOString();
+                  console.log(`[DEBUG PLUGIN] 5. Actualizando registro...`);
+                  await upsertRegistryEntry({
+                    id: plugin.id,
+                    version: release.version,
+                    path: extractedPath,
+                    installationMethod: 'store',
+                    enabled: false,
+                    installedAt: now,
+                    lastUpdatedAt: now,
+                  });
+
+                  console.log(`[DEBUG PLUGIN] 6. Cargando plugin desde la ruta...`);
+                  await loadPluginFromPath(extractedPath);
+
+                  console.log(`[DEBUG PLUGIN] 7. Habilitando plugin...`);
+                  await enablePlugin(plugin.id);
+
+                  console.log(`[DEBUG PLUGIN] 8. INSTALACIÓN COMPLETADA CON ÉXITO.`);
+                } catch (error) {
+                  console.error(`[DEBUG PLUGIN FATAL ERROR] Fallo en la fase de carga/registro:`, error);
+                  throw error;
+                } finally {
+                  console.log(`[DEBUG PLUGIN] 9. Limpiando archivos temporales...`);
+                  await cleanupDownload(plugin.id);
+                }
+
+                return { plugin, version: release.version };
+              },
+              onError: (error, { plugin }) => {
+                const message = resolveErrorMessage(error);
+                toast.error(t('store.installError.title', { name: plugin.name }), {
+                  description: message,
+                });
+              },
+            });
+          };
+          EOF
+          
+          # 2. BÚSQUEDA DINÁMICA DEL CSS E INYECCIÓN DE EMERGENCIA
+          CSS_FILE=$(find ./packages/player -name "android-fixes.css" | head -n 1)
+          if [ -n "$CSS_FILE" ]; then
+            echo "✔️ Archivo CSS encontrado en: $CSS_FILE. Inyectando fix táctil..."
+            cat << 'EOF' >> "$CSS_FILE"
+          
+          /* --------------------------------------------------------------------------
+             7. PARCHE DE EMERGENCIA PARA BOTONES (Z-INDEX Y POINTER EVENTS)
+             -------------------------------------------------------------------------- */
+          [role="dialog"] button,
+          [role="dialog"] [role="button"],
+          [role="dialog"] input[type="checkbox"],
+          [class*="install-button" i] {
+              position: relative !important;
+              z-index: 9999 !important;
+              pointer-events: auto !important;
+          }
+          
+          [role="dialog"] p, [role="dialog"] span {
+              pointer-events: none !important;
+          }
+          EOF
+          else
+            echo "⚠️ ADVERTENCIA: No se encontró android-fixes.css, se saltó el parche táctil."
+          fi
+
       - name: 🛠️ Aplicar UI de Android (Arquitectura Shadowing)
         run: |
-          # Comprueba si has creado la carpeta de superposición
           if [ -d "android_ui" ]; then
-            # Copia recursivamente preservando atributos. 
-            # El punto final asegura que se copie el contenido, no la carpeta en sí.
             cp -a android_ui/. ./
             echo "¡Archivos de UI personalizados inyectados con éxito en la RAM!"
           else
@@ -170,20 +282,15 @@ jobs:
         run: |
           cd packages/player
           
-          # 1. Purgar caché nativa anterior
           rm -rf src-tauri/gen/android
           
-          # 2. PRIMERO creamos el proyecto Android base
           npx tauri android init
           
-          # 3. Copiamos tu imagen como base
           cp public/logo-icon-on-white.png src-tauri/icons/icon.png
           cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
           
-          # 4. LUEGO generamos los iconos. Ahora Tauri sí verá la carpeta de Android
           npx tauri icon public/logo-icon-on-white.png
           
-          # 5. Compilamos el APK
           npx tauri android build --debug --apk --target aarch64
 
       - name: Subir APK final
