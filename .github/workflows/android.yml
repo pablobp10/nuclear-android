@@ -272,4 +272,215 @@ jobs:
 
           if [ -n "$PUBLIC_DIR" ]; then
             CSS_FILE="$PUBLIC_DIR/android-fixes.css"
-            echo "✔️ Carpeta estática detect
+            echo "✔️ Carpeta estática detectada en: $PUBLIC_DIR. Generando $CSS_FILE..."
+            cat << 'EOF' > "$CSS_FILE"
+          /* ==========================================================================
+             PARCHE DE INTERFAZ MÓVIL PARA NUCLEAR PLAYER - COMPLETAMENTE COMENTADO
+             ========================================================================== */
+
+          /* --------------------------------------------------------------------------
+             1. AJUSTES DE LA PANTALLA PRINCIPAL Y LA BARRA SUPERIOR (NOTCH)
+             -------------------------------------------------------------------------- */
+          body, #root {
+              padding: 0 !important;
+              overscroll-behavior-y: none;
+              overflow-x: hidden;
+          }
+
+          [data-tauri-drag-region], .titlebar {
+              display: flex !important;
+              /* ALTURA DEL NOTCH: Si la pantalla principal se ve muy abajo, disminuye este número (ej: 16px) */
+              padding-top: env(safe-area-inset-top, 24px) !important; 
+              height: auto !important;
+              -webkit-app-region: no-drag !important; 
+          }
+
+          /* --------------------------------------------------------------------------
+             2. CONTROL TOTAL DE LA VENTANA DE AJUSTES (EL CUADRO FLOTANTE)
+             -------------------------------------------------------------------------- */
+          @media screen and (max-width: 768px) {
+              
+              [role="dialog"] {
+                  /* POSICIÓN: Mantiene la ventana flotando en el centro exacto de la pantalla móviles */
+                  position: fixed !important;
+                  top: 50% !important;        /* <- UBICACIÓN VERTICAL: 50% es el centro exacto de la pantalla */
+                  left: 50% !important;       /* <- UBICACIÓN HORIZONTAL: 50% es el centro exacto de la pantalla */
+                  transform: translate(-50%, -50%) !important; /* <- CENTRADO MATEMÁTICO ABSOLUTO: No tocar */
+                  
+                  /* DIMENSIONES DE LA VENTANA: Modifica estos valores para cambiar el tamaño del cuadro */
+                  width: 95vw !important;     /* <- ANCHO: 95vw significa 95% del ancho de tu pantalla móvil */
+                  max-width: 95vw !important; 
+                  height: 82vh !important;    /* <- ALTO: 82vh significa 82% del alto de tu pantalla móvil */
+                  max-height: 82vh !important;
+                  
+                  /* ESTÉTICA DE LA VENTANA */
+                  display: flex !important;
+                  flex-direction: column !important; /* <- FUERZA APILAMIENTO: Asegura menú arriba y contenido abajo */
+                  border-radius: 14px !important;    /* <- BORDES REDONDEADOS: Más alto el número = más redondo (ej: 20px) */
+                  background-color: #111111 !important; /* <- COLOR DE FONDO: Fuerza un color oscuro sólido para evitar transparencias */
+                  border: 1px solid rgba(255, 255, 255, 0.1) !important; /* <- BORDE: Línea sutil gris alrededor de la ventana */
+                  
+                  /* ESCALADO/ZOOM: Controla el tamaño de todo lo que esté dentro de los ajustes */
+                  zoom: 0.90 !important;      /* <- ZOOM GENERAL: 0.90 hace todo un 10% más pequeño. Súbelo a 1.00 si lo ves muy chiquito */
+              }
+
+              /* --------------------------------------------------------------------------
+                 3. DESMONTAJE DEL DISEÑO ESTRECHO DE PC (FUERZA DE ANCHO COMPLETO)
+                 -------------------------------------------------------------------------- */
+              /* Obligamos a TODOS los contenedores intermedios de Tailwind a ocupar el 100% del cuadro */
+              [role="dialog"] div, 
+              [role="dialog"] form, 
+              [role="dialog"] section {
+                  display: flex !important;
+                  flex-direction: column !important; /* <- Convierte las filas de PC en columnas móviles */
+                  width: 100% !important;            /* <- SOLUCIÓN AL ANCHO ESTRECHO: Fuerza el 100% de la ventana */
+                  max-width: 100% !important;
+                  height: auto !important;
+              }
+
+              /* --------------------------------------------------------------------------
+                 4. PARCHE PARA EL MENÚ (CONVERTIR EN PESTAÑAS HORIZONTALES SUPERIORES)
+                 -------------------------------------------------------------------------- */
+              /* Target directo a cualquier sistema de navegación o barra lateral dentro del diálogo */
+              [role="dialog"] [role="tablist"],
+              [role="dialog"] nav,
+              [role="dialog"] aside,
+              [role="dialog"] [class*="menu" i],
+              [role="dialog"] [class*="sidebar" i] {
+                  display: flex !important;
+                  flex-direction: row !important;    /* <- ¡OBLIGA AL MENÚ A SER HORIZONTAL! */
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  height: auto !important;
+                  
+                  /* DESLIZAMIENTO: Permite mover el dedo a los lados (scroll horizontal) si las pestañas no caben */
+                  overflow-x: auto !important;       
+                  overflow-y: hidden !important;
+                  white-space: nowrap !important;    /* <- EVITA SALTOS DE LÍNEA: Las pestañas se quedan en una sola línea recta */
+                  
+                  /* ESTÉTICA DE LA BARRA DE PESTAÑAS */
+                  border-right: none !important;     /* Quita la línea divisoria vertical de PC */
+                  border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important; /* <- LÍNEA HORIZONTAL debajo del menú */
+                  padding: 8px 4px !important;       /* <- ESPACIADO INTERNO: Margen dentro de la barra de pestañas */
+                  margin-bottom: 14px !important;    /* <- MARGEN INFERIOR: Separación entre el menú y las opciones de abajo */
+              }
+
+              /* Ajuste de los botones individuales de las pestañas para que no se estiren */
+              [role="dialog"] [role="tab"],
+              [role="dialog"] nav > *,
+              [role="dialog"] aside > *,
+              [role="dialog"] [class*="menu" i] > *,
+              [role="dialog"] [class*="sidebar" i] > * {
+                  flex: 0 0 auto !important;         /* <- ANTI-ESTIRAMIENTO: Evita que el botón ocupe toda la pantalla */
+                  width: fit-content !important;     /* <- ANCHO JUSTO: El botón mide exactamente lo que mide su texto */
+                  padding: 8px 14px !important;      /* <- TAMAÑO DEL BOTÓN: Relleno interno (Arriba/Abajo e Izquierda/Derecha) */
+                  margin-right: 6px !important;      /* <- SEPARACIÓN: Espacio libre entre una pestaña y la siguiente */
+              }
+
+              /* --------------------------------------------------------------------------
+                 5. PARCHE PARA EL CONTENIDO (EL PANEL DE OPCIONES DE CONFIGURACIÓN)
+                 -------------------------------------------------------------------------- */
+              /* Apuntamos al contenedor donde se muestran los interruptores y selectores */
+              [role="dialog"] [role="tabpanel"],
+              [role="dialog"] main,
+              [role="dialog"] [class*="content" i] {
+                  display: flex !important;
+                  flex-direction: column !important; /* Las opciones se apilan una debajo de otra */
+                  flex: 1 1 auto !important;         /* <- RELLENO DINÁMICO: Estira el panel para ocupar todo el alto libre hasta el fondo */
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  
+                  /* SCROLL VERTICAL: Activa el deslizamiento hacia abajo para leer todos los ajustes */
+                  overflow-y: auto !important;       
+                  overflow-x: hidden !important;
+                  padding: 12px !important;          /* <- MARGEN INTERNO: Separación para que las opciones no toquen el borde del cuadro */
+              }
+
+              /* FILAS DE AJUSTES INDIVIDUALES: Ajusta el texto a la izquierda y el botón a la derecha */
+              [role="tabpanel"] > div,
+              [class*="content" i] > div,
+              [role="dialog"] [class*="setting" i] {
+                  display: flex !important;
+                  flex-direction: row !important;    /* <- Pone el Nombre del ajuste a la izquierda y su Interruptor a la derecha */
+                  flex-wrap: wrap !important;        /* <- FLUIDO: Si el móvil es muy estrecho, el botón baja para no romper el diseño */
+                  justify-content: space-between !important; /* <- SEPARACIÓN MAXIMA: Empuja el texto a la izquierda y el botón a la derecha */
+                  align-items: center !important;    /* Centrado vertical perfecto entre el texto y el interruptor */
+                  width: 100% !important;
+                  padding: 14px 0 !important;        /* <- DISTANCIA ENTRE AJUSTES: Espacio libre entre una opción y otra */
+                  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important; /* <- LÍNEA DIVISORIA sutil entre ajustes */
+              }
+
+              /* --------------------------------------------------------------------------
+                 6. TEXTOS, SELECCIONES E INPUTS (ANTI-DESBORDAMIENTO TÁCTIL)
+                 -------------------------------------------------------------------------- */
+              [role="dialog"] p, 
+              [role="dialog"] span, 
+              [role="dialog"] label,
+              [role="dialog"] h1, [role="dialog"] h2 {
+                  white-space: normal !important;    /* <- PERMITE SALTO DE LÍNEA: Si la explicación del ajuste es larga, baja y no se corta */
+                  word-wrap: break-word !important; 
+                  font-size: 0.95rem !important;     /* <- TAMAÑO DE LA LETRA de las descripciones */
+              }
+
+              [role="dialog"] input, 
+              [role="dialog"] select, 
+              [role="dialog"] .dropdown {
+                  width: auto !important;            /* Evita que los selectores se estiren a lo ancho de forma fea */
+                  max-width: 100% !important;
+                  min-height: 38px !important;       /* <- ALTURA TÁCTIL MÍNIMA para que sea cómodo pulsar las opciones */
+              }
+          }
+
+          /* --------------------------------------------------------------------------
+             7. PARCHE DE EMERGENCIA PARA BOTONES (Z-INDEX Y POINTER EVENTS)
+             -------------------------------------------------------------------------- */
+          [role="dialog"] button,
+          [role="dialog"] [role="button"],
+          [role="dialog"] input[type="checkbox"],
+          [class*="install-button" i] {
+              position: relative !important;
+              z-index: 9999 !important;
+              pointer-events: auto !important;
+          }
+
+          [role="dialog"] p, [role="dialog"] span {
+              pointer-events: none !important;
+          }
+          EOF
+          else
+            echo "❌ ERROR: No se encontró el directorio estático 'public' dentro de packages/player."
+            exit 1
+          fi
+
+      - name: 🛠️ Aplicar UI de Android (Arquitectura Shadowing)
+        run: |
+          if [ -d "android_ui" ]; then
+            cp -a android_ui/. ./
+            echo "¡Archivos de UI personalizados inyectados con éxito en la RAM!"
+          else
+            echo "No se detectó carpeta 'android_ui'. Se utilizará la UI de escritorio original."
+          fi
+          
+      - name: Compilar Frontend y Dependencias (React)
+        run: pnpm run build --filter "@nuclearplayer/player"
+
+      - name: Construir y Compilar APK (Tauri Android - DEBUG)
+        run: |
+          cd packages/player
+          
+          rm -rf src-tauri/gen/android
+          
+          npx tauri android init
+          
+          cp public/logo-icon-on-white.png src-tauri/icons/icon.png
+          cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
+          
+          npx tauri icon public/logo-icon-on-white.png
+          
+          npx tauri android build --debug --apk --target aarch64
+
+      - name: Subir APK final
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nuclear-Player-APK
+          path: packages/player/src-tauri/gen/android/**/*.apk
