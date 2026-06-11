@@ -14,65 +14,95 @@ body, #root {
     -webkit-app-region: no-drag !important; 
 }
 
-/* 2. ESTÉTICA DE VENTANA FLOTANTE (PARCHE SEMANTIC UI MÓVIL) */
+/* 2. ESTÉTICA DE VENTANA FLOTANTE Y UX MÓVIL (Escalado y Pestañas) */
 @media screen and (max-width: 768px) {
     
-    /* A. El Contenedor: Dejamos que el sistema original lo centre, solo forzamos tamaño */
+    /* A. El Contenedor: Máximo ancho posible (98%) manteniendo el marco */
     [role="dialog"], 
     .ui.modal {
-        width: 94vw !important;
-        height: 85vh !important; /* Altura fija relativa a la pantalla para evitar el colapso de 3mm */
+        width: 98vw !important;  /* Ensanchado */
+        height: 85vh !important; 
         margin: 0 auto !important; 
         
-        /* Limpiamos cualquier anclaje absoluto conflictivo */
         top: auto !important;
         left: auto !important;
         bottom: auto !important;
         transform: none !important;
         
-        /* Lo convertimos en una columna para que el interior no se aplaste */
         display: flex !important;
         flex-direction: column !important;
         border-radius: 12px !important;
     }
 
-    /* B. El Área de Contenido: Le decimos que ocupe todo el espacio sobrante del 85vh */
+    /* B. Escalado general (Hace que los elementos se vean más pequeños) */
+    .ui.modal, .ui.modal * {
+        font-size: 0.92rem !important; /* Reduce el tamaño del texto y componentes un ~8% */
+    }
+
+    /* C. Área de contenido optimizada */
     .ui.modal > .content,
     [role="dialog"] > .content {
-        flex: 1 1 auto !important; /* Crece para rellenar el modal */
-        overflow-y: auto !important; /* Scroll interno seguro */
+        flex: 1 1 auto !important; 
+        overflow-y: auto !important; 
         overflow-x: hidden !important;
-        padding: 16px !important;
+        padding: 12px !important; /* Reducimos el padding para ganar espacio útil */
     }
 
-    /* C. Textos fluidos */
-    .ui.modal *,
-    [role="dialog"] * {
-        white-space: normal !important; 
-        word-wrap: break-word !important; 
-    }
-
-    /* D. Destrucción del "Grid" de Semantic UI (El verdadero culpable de las columnas estrechas) */
+    /* D. Transformación de la Cuadrícula a Columna */
     .ui.modal .ui.grid,
     .ui.modal .row,
     [role="dialog"] .ui.grid,
     [role="dialog"] .row {
         display: flex !important;
-        flex-direction: column !important; /* Rompemos las filas y forzamos verticalidad */
+        flex-direction: column !important; 
         margin: 0 !important;
         padding: 0 !important;
     }
 
-    /* Forzamos que cada columna individual ocupe el 100% del móvil */
+    /* =========================================================
+       E. LA MAGIA: Convertir el Menú Lateral en Pestañas Móviles
+       ========================================================= */
+    .ui.modal .ui.vertical.menu,
+    .ui.modal .menu {
+        display: flex !important;
+        flex-direction: row !important; /* Lo pone en horizontal */
+        overflow-x: auto !important;    /* Permite deslizar con el dedo */
+        overflow-y: hidden !important;
+        width: 100% !important;
+        white-space: nowrap !important; /* Evita que el texto salte de línea */
+        
+        /* Estética de la barra */
+        border-right: none !important;
+        border-bottom: 2px solid rgba(128, 128, 128, 0.2) !important;
+        margin-bottom: 12px !important;
+        padding-bottom: 4px !important;
+    }
+    
+    /* Hacemos que cada botón del menú se ajuste estrictamente a su texto */
+    .ui.modal .ui.vertical.menu .item,
+    .ui.modal .menu .item {
+        width: fit-content !important; /* ¡Adiós columnas anchas! */
+        flex: 0 0 auto !important;
+        padding: 10px 14px !important;
+        border: none !important;
+    }
+    /* ========================================================= */
+
+    /* F. Las opciones de los ajustes (El contenido real) */
     .ui.modal .column,
     [role="dialog"] .column {
         width: 100% !important;
         max-width: 100% !important;
-        flex: 0 0 100% !important; /* Desactiva el reparto equitativo de PC */
-        padding: 12px 0 !important; /* Espaciado entre opciones */
+        flex: 0 0 100% !important; 
+        padding: 8px 0 !important; 
     }
 
-    /* E. Aseguramos que los componentes internos fluyan */
+    /* G. Textos fluidos y componentes contenidos */
+    .ui.modal *,
+    [role="dialog"] * {
+        white-space: normal !important; 
+        word-wrap: break-word !important; 
+    }
     .ui.modal input,
     .ui.modal select,
     .ui.modal button,
