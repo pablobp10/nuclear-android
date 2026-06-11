@@ -169,6 +169,15 @@ jobs:
       - name: Construir y Compilar APK (Tauri Android - DEBUG)
         run: |
           cd packages/player
+          
+          # 1. Reemplazamos el icono base de escritorio
+          cp public/logo-icon-on-white.png src-tauri/icons/icon.png
+          cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
+          
+          # 2. Le decimos a Tauri que genere todos los tamaños nativos para Android
+          npx tauri icon public/logo-icon-on-white.png
+          
+          # 3. Compilamos el APK
           npx tauri android init
           npx tauri android build --debug --apk --target aarch64
 
