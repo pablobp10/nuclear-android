@@ -143,6 +143,30 @@ jobs:
             fs.writeFileSync(ytdlpPath, code);
             console.log("✔️ yt-dlp parcheado para Android");
           }
+
+          // 7. PARCHE PARA ESBUILD EN ANDROID (WASM URL ABSOLUTA)
+          const compilerPath = "./packages/player/src/services/plugins/pluginCompiler.ts";
+          if (fs.existsSync(compilerPath)) {
+            let code = fs.readFileSync(compilerPath, "utf8");
+            code = code.replace(
+              /await es\.mod\.initialize\(\{[\s\S]*?wasmURL:\s*wasmUrl,[\s\S]*?worker:\s*false\s*\}\);/g,
+              `const fullWasmUrl = new URL(wasmUrl, window.location.origin).href;\n      await es.mod.initialize({ wasmURL: fullWasmUrl, worker: false });`
+            );
+            fs.writeFileSync(compilerPath, code);
+            console.log("✔️ pluginCompiler.ts parcheado (WASM URL estabilizada para WebView)");
+          }
+
+          // 8. PARCHE PARA ERROR DE RUTAS EN TAURI MOBILE (Conflicto BaseDirectory)
+          const dirPath = "./packages/player/src/services/plugins/pluginDir.ts";
+          if (fs.existsSync(dirPath)) {
+            let code = fs.readFileSync(dirPath, "utf8");
+            code = code.replace(/await remove\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g,
+                                "await remove(destination, { recursive: true });");
+            code = code.replace(/await mkdir\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g,
+                                "await mkdir(destination, { recursive: true });");
+            fs.writeFileSync(dirPath, code);
+            console.log("✔️ pluginDir.ts parcheado (Resolución de rutas absolutas corregida)");
+          }
           EOF
 
       - name: 🛠️ Ejecutar Parches
