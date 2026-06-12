@@ -20,15 +20,14 @@ body, #root {
 }
 
 /* ==========================================================================
-   2. RECONSTRUCCIÓN DEL MODAL (USO DE RADAR CSS :has PARA EVADIR REACT)
+   2. RECONSTRUCCIÓN DEL MODAL (ESTRUCTURA PERFECTA Y ANTI-GIGANTISMO)
    ========================================================================== */
 @media screen and (max-width: 768px) {
     
-    /* A. EL RADAR (Encuentra la caja secreta y la aplasta a columna) */
-    /* Busca automáticamente CUALQUIER etiqueta que envuelva al menú y aniquila el modo fila */
+    /* A. EL RADAR (Mantiene la estructura arreglada del contenedor) */
     *:has(> nav) {
         display: flex !important;
-        flex-direction: column !important; /* FUERZA MENÚ ARRIBA Y CONTENIDO ABAJO */
+        flex-direction: column !important;
         width: 100% !important;
         max-width: 100% !important;
         height: 100% !important;
@@ -36,7 +35,7 @@ body, #root {
         padding: 0 !important;
     }
 
-    /* B. LA VENTANA EXTERIOR (Fondo y posición) */
+    /* B. LA VENTANA EXTERIOR (Sin el bug del Zoom) */
     [role="dialog"] {
         width: 96vw !important;
         max-width: 96vw !important;
@@ -51,15 +50,13 @@ body, #root {
         background-color: #0d0e11 !important;
         border-radius: 12px !important;
         overflow: hidden !important;
-        zoom: 0.90 !important;
+        /* ZOOM ELIMINADO para evitar que distorsione los botones */
     }
 
-    /* C. EL MENÚ SUPERIOR (Transformado a horizontal) */
+    /* C. EL MENÚ SUPERIOR (Pestañas horizontales) */
     [role="dialog"] nav {
         display: flex !important;
         flex-direction: column !important;
-        
-        /* IMPIDE QUE SE QUEDE A LA IZQUIERDA */
         width: 100% !important;
         max-width: 100% !important;
         min-width: 100% !important; 
@@ -72,7 +69,6 @@ body, #root {
         box-sizing: border-box !important;
     }
 
-    /* El carril deslizable de las pestañas (dentro del nav) */
     [role="dialog"] nav > div {
         display: flex !important;
         flex-direction: row !important;
@@ -84,24 +80,19 @@ body, #root {
         padding-bottom: 4px !important;
     }
 
-    /* Los botones de las pestañas */
     [role="dialog"] nav button {
         width: fit-content !important;
         flex: 0 0 auto !important;
+        font-size: 0.90rem !important; /* Letra un poco más pequeña y elegante */
     }
 
-    /* D. EL CONTENIDO DE LOS AJUSTES */
-    /* Captura TODO lo que vaya inmediatamente después del <nav> sea div, form o section */
+    /* D. EL CONTENEDOR DE LOS AJUSTES */
     [role="dialog"] nav ~ * {
         display: flex !important;
         flex-direction: column !important;
-        
-        /* FUERZA EL ANCHO TOTAL (Elimina el hueco/rectángulo derecho) */
         width: 100% !important;
         max-width: 100% !important;
         min-width: 100% !important;
-        
-        /* Crece hacia abajo para ocupar el resto del fondo */
         flex: 1 1 auto !important; 
         
         padding: 16px !important;
@@ -110,15 +101,39 @@ body, #root {
         overflow-x: hidden !important;
         box-sizing: border-box !important;
     }
+
+    /* E. LA VACUNA ANTI-GIGANTISMO (¡LO NUEVO!) */
     
-    /* Evita que un texto de los ajustes empuje la pantalla */
-    [role="dialog"] nav ~ * * {
-        max-width: 100% !important;
+    /* 1. Bloqueo estricto a los iconos para que no exploten (24x24 píxeles) */
+    [role="dialog"] svg {
+        max-width: 24px !important;
+        max-height: 24px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* 2. Chaleco de fuerza contra el "Estiramiento" en interruptores, cajas y botones */
+    [role="dialog"] nav ~ * button,
+    [role="dialog"] nav ~ * input,
+    [role="dialog"] nav ~ * select,
+    [role="dialog"] nav ~ * [role="switch"],
+    [role="dialog"] nav ~ * [role="checkbox"] {
+        flex: 0 0 auto !important;       /* Prohibe que crezcan para rellenar vacíos */
+        width: auto !important;          /* Se ajustan a su contenido real */
+        height: auto !important;         /* Se ajustan a su contenido real */
+        min-height: 24px !important;     /* Evita que desaparezcan si están vacíos */
+        max-width: 100% !important;      /* Evita que se salgan de la pantalla si son muy largos */
+    }
+
+    /* 3. Textos fluidos */
+    [role="dialog"] nav ~ * p,
+    [role="dialog"] nav ~ * span,
+    [role="dialog"] nav ~ * label {
+        height: auto !important;
         white-space: normal !important;
         word-wrap: break-word !important;
     }
 
-    /* E. ANIQUILACIÓN DEL BOTÓN CERRAR ("X") */
+    /* F. ANIQUILACIÓN DEL BOTÓN CERRAR ("X") */
     [role="dialog"] > button[class*="absolute"],
     [role="dialog"] button[aria-label*="Close" i] {
         display: none !important;
