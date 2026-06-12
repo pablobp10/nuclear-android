@@ -20,103 +20,107 @@ body, #root {
 }
 
 /* ==========================================================================
-   2. RECONSTRUCCIÓN DEL MODAL (ATAQUE ESTRUCTURAL PURO)
+   2. RECONSTRUCCIÓN DEL MODAL (USO DE RADAR CSS :has PARA EVADIR REACT)
    ========================================================================== */
 @media screen and (max-width: 768px) {
     
-    /* A. LA VENTANA PRINCIPAL */
-    [role="dialog"] {
-        position: fixed !important;
-        top: 50% !important; left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        
+    /* A. EL RADAR (Encuentra la caja secreta y la aplasta a columna) */
+    /* Busca automáticamente CUALQUIER etiqueta que envuelva al menú y aniquila el modo fila */
+    *:has(> nav) {
         display: flex !important;
-        flex-direction: column !important;
-        
+        flex-direction: column !important; /* FUERZA MENÚ ARRIBA Y CONTENIDO ABAJO */
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* B. LA VENTANA EXTERIOR (Fondo y posición) */
+    [role="dialog"] {
         width: 96vw !important;
         max-width: 96vw !important;
         height: 85vh !important;
         max-height: 85vh !important;
         
-        padding: 0 !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
+        position: fixed !important;
+        top: 50% !important; left: 50% !important;
+        transform: translate(-50%, -50%) !important;
         
-        border-radius: 12px !important;
+        padding: 0 !important;
         background-color: #0d0e11 !important;
+        border-radius: 12px !important;
         overflow: hidden !important;
         zoom: 0.90 !important;
     }
 
-    /* B. EL ENVOLTORIO INVISIBLE (La clave del fallo) */
-    /* Forzamos a que cualquier contenedor padre directo también sea una columna */
-    [role="dialog"] > div {
-        display: flex !important;
-        flex-direction: column !important; /* ¡Adiós al modo fila! */
-        width: 100% !important;
-        max-width: 100% !important;
-        height: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-
-    /* C. LA BARRA DE NAVEGACIÓN (Atacamos a la etiqueta <nav>) */
+    /* C. EL MENÚ SUPERIOR (Transformado a horizontal) */
     [role="dialog"] nav {
         display: flex !important;
         flex-direction: column !important;
         
-        /* IMPEDIMOS EL RECTÁNGULO DERECHO FORZANDO EL ANCHO TOTAL */
+        /* IMPIDE QUE SE QUEDE A LA IZQUIERDA */
         width: 100% !important;
         max-width: 100% !important;
         min-width: 100% !important; 
-        
-        flex: 0 0 auto !important; /* No se aplasta verticalmente */
-        box-sizing: border-box !important;
+        flex: 0 0 auto !important; 
         
         padding: 8px !important;
+        margin: 0 !important;
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        box-sizing: border-box !important;
     }
 
-    /* El carril de pestañas deslizable (dentro del nav) */
+    /* El carril deslizable de las pestañas (dentro del nav) */
     [role="dialog"] nav > div {
         display: flex !important;
         flex-direction: row !important;
+        flex-wrap: nowrap !important;
         width: 100% !important;
         overflow-x: auto !important;
         overflow-y: hidden !important;
         gap: 8px !important;
+        padding-bottom: 4px !important;
     }
 
-    /* D. EL CONTENIDO DE LAS OPCIONES */
-    /* Seleccionamos cualquier <div> que sea hermano y vaya después del <nav> */
-    [role="dialog"] nav ~ div {
+    /* Los botones de las pestañas */
+    [role="dialog"] nav button {
+        width: fit-content !important;
+        flex: 0 0 auto !important;
+    }
+
+    /* D. EL CONTENIDO DE LOS AJUSTES */
+    /* Captura TODO lo que vaya inmediatamente después del <nav> sea div, form o section */
+    [role="dialog"] nav ~ * {
         display: flex !important;
         flex-direction: column !important;
         
-        /* ANCHO TOTAL OBLIGATORIO */
+        /* FUERZA EL ANCHO TOTAL (Elimina el hueco/rectángulo derecho) */
         width: 100% !important;
         max-width: 100% !important;
         min-width: 100% !important;
         
-        /* Crece hacia abajo ocupando todo lo que queda de la ventana */
+        /* Crece hacia abajo para ocupar el resto del fondo */
         flex: 1 1 auto !important; 
         
         padding: 16px !important;
+        margin: 0 !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         box-sizing: border-box !important;
     }
-
-    /* E. PROTECCIÓN DE TEXTOS */
-    [role="dialog"] nav ~ div * {
+    
+    /* Evita que un texto de los ajustes empuje la pantalla */
+    [role="dialog"] nav ~ * * {
         max-width: 100% !important;
         white-space: normal !important;
         word-wrap: break-word !important;
     }
 
-    /* F. ANIQUILACIÓN DEL BOTÓN DE CERRAR ("X") */
-    [role="dialog"] button[class*="absolute"] {
+    /* E. ANIQUILACIÓN DEL BOTÓN CERRAR ("X") */
+    [role="dialog"] > button[class*="absolute"],
+    [role="dialog"] button[aria-label*="Close" i] {
         display: none !important;
     }
 }
