@@ -44,7 +44,7 @@ jobs:
           ESTADO_NUEVO=$(git rev-parse HEAD)
           
           if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
-            # El push estándar ahora funciona siempre
+            # Ahora el push estándar funcionará siempre
             git push origin main
             echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
             echo "¡Actualización detectada y fusionada con éxito!"
@@ -54,11 +54,10 @@ jobs:
           fi
 
       - name: Disparar la compilación del APK
-        # Se lanza si hay código nuevo, O si has pulsado el botón manualmente
-        if: steps.sync.outputs.cambios_nuevos == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.sync.outputs.cambios_nuevos == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Llama al constructor (android.yml) de forma segura
+          # Llama al constructor de forma segura con el token predeterminado
           gh workflow run android.yml --ref main --repo ${{ github.repository }}
           echo "¡Orden de compilación enviada al Constructor (android.yml)!"
