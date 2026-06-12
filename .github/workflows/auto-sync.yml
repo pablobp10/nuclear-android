@@ -2,9 +2,7 @@ name: Auto-Sync Upstream
 
 on:
   schedule:
-    # El vigilante se despierta automáticamente todos los días a las 3:00 AM (Hora UTC)
     - cron: '0 3 * * *'
-  # Este comando añade el botón "Run workflow" para que lo lances MANUALMENTE cuando quieras
   workflow_dispatch:
 
 jobs:
@@ -25,23 +23,27 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Sincronizar con el código original (Nuclear)
+      - name: Sincronizar con el código original (Nuclear) usando SQUASH
         id: sync
         run: |
-          # Añadimos la fuente original
           git remote add upstream https://github.com/nukeop/nuclear.git
           git fetch upstream
           
-          # Guardamos el hash del commit actual
           ESTADO_PREVIO=$(git rev-parse HEAD)
           
-          # Fusionamos su código dando prioridad al código de ellos si hay conflictos (-X theirs)
-          git merge upstream/master --allow-unrelated-histories -X theirs --no-edit
+          # Hacemos la fusión destruyendo el historial del creador original para esquivar a GitHub
+          git merge upstream/master --squash -X theirs --allow-unrelated-histories || true
+          
+          # Restauramos la carpeta .github para que no intente subir cambios de workflows
+          git reset HEAD .github/ || true
+          git checkout HEAD -- .github/ || true
+          
+          # Guardamos el resultado limpio
+          git commit -m "Auto-Sync: Sincronización desde upstream (Modo Squash)" || true
           
           ESTADO_NUEVO=$(git rev-parse HEAD)
           
           if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
-            # Si hay código nuevo, guardamos los cambios en tu repositorio
             git push origin main
             echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
             echo "¡Actualización detectada y fusionada con éxito!"
@@ -51,12 +53,9 @@ jobs:
           fi
 
       - name: Disparar la compilación del APK
-        # Este paso SOLO se ejecuta si el paso anterior detectó cambios reales
         if: steps.sync.outputs.cambios_nuevos == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Usamos la CLI de GitHub para ejecutar tu android.yml
-          # La bandera --repo fuerza a que busque el workflow en tu fork, evitando el error 404
           gh workflow run android.yml --ref main --repo ${{ github.repository }}
           echo "¡Orden de compilación enviada al Constructor (android.yml)!"
