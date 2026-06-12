@@ -17,7 +17,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 
-          token: ${{ secrets.PAT_TOKEN }} # 🔑 LA LLAVE MAESTRA QUE EVITA EL BLOQUEO
+          # EL TRUCO MAESTRO: Si existe tu PAT lo usa. Si alguien copia tu repo y no tiene PAT, usa el bot normal por defecto. ¡Es 100% compartible!
+          token: ${{ secrets.PAT_TOKEN || github.token }}
 
       - name: Configurar identidad de Git
         run: |
@@ -34,22 +35,23 @@ jobs:
           # Fusión en memoria sin confirmación automática
           git merge upstream/master --allow-unrelated-histories -X theirs --no-commit || true
 
-          # Restauramos nuestra carpeta de workflows para proteger nuestro android.yml
+          # Protegemos nuestros flujos de trabajo (.github/workflows)
           git checkout $ESTADO_PREVIO -- .github/workflows/
-
+          
           # Confirmamos la fusión manualmente
-          git commit -m "Merge upstream/master (Protegiendo workflows propios)" || true
+          git commit -m "Merge upstream/master (Sincronización segura)" || true
 
           ESTADO_NUEVO=$(git rev-parse HEAD)
 
           if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
-            # Ahora el push usará el PAT_TOKEN y GitHub lo dejará pasar
+            # Como inyectamos el token en el checkout, este comando simple ahora viaja con autoridad de administrador
             git push origin HEAD:main
+            
             echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
-            echo "¡Actualización detectada, filtrada y fusionada con éxito!"
+            echo "¡Actualización finalizada y permisos superados!"
           else
             echo "cambios_nuevos=false" >> $GITHUB_OUTPUT
-            echo "Todo está al día. El creador original no ha subido nada nuevo."
+            echo "Todo está al día."
           fi
         shell: /usr/bin/bash -e {0}
 
