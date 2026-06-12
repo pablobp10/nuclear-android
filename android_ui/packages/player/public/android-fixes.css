@@ -87,40 +87,48 @@ body, #root {
         height: 0 !important;
     }
 
-    /* --------------------------------------------------------------------------
+        /* --------------------------------------------------------------------------
        4. EL MENÚ SUPERIOR (PESTAÑAS DESLIZABLES)
        -------------------------------------------------------------------------- */
     [role="dialog"] nav {
         display: flex !important;
         flex-direction: column !important;
         width: 100% !important;
-        flex: 0 0 auto !important; /* Protege el alto del menú */
+        flex: 0 0 auto !important; 
         padding: 8px !important;
         margin: 0 !important;
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
 
-    /* Carril de botones horizontal */
-    [role="dialog"] nav > div {
+    /* Carril de botones (QUITAMOS EL '>' PARA ATRAVESAR LAS CAPAS DE REACT) */
+    [role="dialog"] nav div {
         display: flex !important;
         flex-direction: row !important; 
         flex-wrap: nowrap !important;
+        
+        /* Habilita el carril táctil de izquierda a derecha */
         overflow-x: auto !important;    
         overflow-y: hidden !important;
+        
         gap: 8px !important;
         width: 100% !important;
         padding-bottom: 4px !important;
     }
 
-    /* Botones de las pestañas */
+    /* Botones de las pestañas (Protección extrema) */
     [role="dialog"] nav button {
         flex: 0 0 auto !important;
-        width: max-content !important; /* Excepción para que el botón no corte su propio texto */
+        
+        /* ANTÍDOTO: Ignora la orden de encogerse, cada botón mide lo que mide su texto */
+        width: max-content !important; 
+        min-width: max-content !important; 
+        
         padding: 6px 12px !important;
         font-size: 13px !important; 
         border-radius: 20px !important;
     }
+
 
     /* --------------------------------------------------------------------------
        5. EL PANEL DE CONTENIDO (ZONA DE AJUSTES)
