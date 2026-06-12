@@ -42,24 +42,25 @@ jobs:
           npm install -g pnpm@10.33.4
           pnpm install
 
-      - name: 🛠️ Crear script de parcheo infalible
+      - name: Crear script de parcheo (patch.cjs)
         run: |
           cat << 'EOF' > patch.cjs
           const fs = require("fs");
           const path = require("path");
 
-          // 1. Evitar compilación de Linux en Turborepo
-          const pkgPath = "./packages/player/package.json";
-          if (fs.existsSync(pkgPath)) {
-            let pkg = JSON.parse(fs.readFileSync(pkgPath));
-            if (pkg.scripts && pkg.scripts.build) {
-              pkg.scripts.build = pkg.scripts["build:frontend"] || "tsc && vite build";
-              fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
-              console.log("✔️ package.json parcheado");
-            }
+          // 1. Desactivar plugins de escritorio incompatibles con móvil
+          const rustPath = "./packages/player/src-tauri/src/lib.rs";
+          if (fs.existsSync(rustPath)) {
+            let code = fs.readFileSync(rustPath, "utf8");
+            code = code.replace(/tauri_plugin_window_state::Builder::default\(\)\.build\(\)/g, "tauri_plugin_window_state::Builder::default().build()");
+            code = code.replace(/tauri_plugin_updater::Builder::new\(\)\.build\(\)/g, "tauri_plugin_updater::Builder::new().build()");
+            // Comentar el plugin de estado de ventana si causa error de compilación
+            code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* .plugin(window_state) */");
+            fs.writeFileSync(rustPath, code);
+            console.log("✅ lib.rs parcheado (Plugins de escritorio neutralizados)");
           }
 
-          // 2. Whitelist de permisos Android
+          // 2. Whitelist de capacidades de Tauri
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -77,20 +78,39 @@ jobs:
                 }
               } catch(e) {}
             }
+            console.log("✅ Capacidades de Tauri filtradas con permisos de Red.");
           }
 
-          // 3. Extirpar plugins de escritorio de tauri.conf
-          const confPath = "./packages/player/src-tauri/tauri.conf.json";
-          if (fs.existsSync(confPath)) {
-            let conf = JSON.parse(fs.readFileSync(confPath));
-            if (!conf.plugins) conf.plugins = {};
-            delete conf.plugins.process;
-            delete conf.plugins["window-state"];
-            if (conf.bundle && conf.bundle.updater) delete conf.bundle.updater;
-            conf.plugins.updater = { pubkey: "dW5hX2NsYXZlX3B1YmxpY2FfZmFsc2FfcGFyYV9lbmdhbmFyX2FsX2J1bmRsZXI=", endpoints: [] };
-            fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
-            console.log("✔️ tauri.conf.json parcheado");
+          // 3. INYECCIÓN NATIVA DE ANDROID (PERMISOS OS Y CLEARTEXT)
+          // Buscamos el Manifest de Android generado por Tauri
+          const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
+          
+          if (fs.existsSync(manifestPath)) {
+            let manifest = fs.readFileSync(manifestPath, "utf8");
+            
+            // A. Inyectar permisos de Red y Almacenamiento si no existen
+            if (!manifest.includes("android.permission.INTERNET")) {
+              const permisosAndroid = `
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <application`;
+              // Insertamos los permisos justo antes de abrir la etiqueta <application>
+              manifest = manifest.replace("<application", permisosAndroid);
+            }
+
+            // B. Permitir tráfico HTTP inseguro (Cleartext)
+            if (!manifest.includes('android:usesCleartextTraffic="true"')) {
+              manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true"');
+            }
+
+            fs.writeFileSync(manifestPath, manifest);
+            console.log("✅ AndroidManifest.xml hackeado (Permisos totales de SO inyectados).");
+          } else {
+            console.warn("⚠️ No se encontró AndroidManifest.xml (puede que se genere después).");
           }
+          EOF
 
           // 4. Purgar dependencias de Cargo.toml
           const cargoPath = "./packages/player/src-tauri/Cargo.toml";
