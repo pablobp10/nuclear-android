@@ -86,7 +86,7 @@ body, #root {
         font-size: 0.90rem !important; /* Letra un poco más pequeña y elegante */
     }
 
-    /* D. EL CONTENEDOR DE LOS AJUSTES */
+    /* D. EL CONTENEDOR DE LOS AJUSTES (Zona de opciones) */
     [role="dialog"] nav ~ * {
         display: flex !important;
         flex-direction: column !important;
@@ -95,42 +95,54 @@ body, #root {
         min-width: 100% !important;
         flex: 1 1 auto !important; 
         
-        padding: 16px !important;
+        padding: 12px !important; /* Margen general de la ventana */
         margin: 0 !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         box-sizing: border-box !important;
     }
 
-    /* E. LA VACUNA ANTI-GIGANTISMO (¡LO NUEVO!) */
-    
-    /* 1. Bloqueo estricto a los iconos para que no exploten (24x24 píxeles) */
+    /* E. MODO MINIATURA EXTREMA (LA SOLUCIÓN AL GIGANTISMO) */
+
+    /* 1. Reducción global de TODO el texto dentro de los ajustes */
+    [role="dialog"] nav ~ * * {
+        font-size: 12px !important;  /* <- LETRA: Empieza en 12px (muy pequeña). Súbelo a 14px si no lo lees bien */
+        line-height: 1.2 !important; /* <- INTERLINEADO: Muy pegado para ahorrar espacio */
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+
+    /* 2. Iconos en miniatura */
     [role="dialog"] svg {
-        max-width: 24px !important;
-        max-height: 24px !important;
+        width: 16px !important;      /* <- ICONOS: Forzados a 16x16 píxeles */
+        height: 16px !important;
+        min-width: 16px !important;
+        min-height: 16px !important;
+        max-width: 16px !important;
+        max-height: 16px !important;
         flex-shrink: 0 !important;
     }
 
-    /* 2. Chaleco de fuerza contra el "Estiramiento" en interruptores, cajas y botones */
+    /* 3. Controles aplastados (Botones, inputs, selects, interruptores) */
     [role="dialog"] nav ~ * button,
     [role="dialog"] nav ~ * input,
     [role="dialog"] nav ~ * select,
     [role="dialog"] nav ~ * [role="switch"],
     [role="dialog"] nav ~ * [role="checkbox"] {
-        flex: 0 0 auto !important;       /* Prohibe que crezcan para rellenar vacíos */
-        width: auto !important;          /* Se ajustan a su contenido real */
-        height: auto !important;         /* Se ajustan a su contenido real */
-        min-height: 24px !important;     /* Evita que desaparezcan si están vacíos */
-        max-width: 100% !important;      /* Evita que se salgan de la pantalla si son muy largos */
+        height: 28px !important;       /* <- ALTURA DEL BOTÓN: 28px es muy fino. Súbelo a 36px si tu dedo no acierta */
+        max-height: 28px !important;
+        min-height: 20px !important;
+        padding: 4px 8px !important;   /* <- RELLENO DEL BOTÓN: Apenas 4px de aire arriba y abajo */
+        margin: 2px 0 !important;
+        width: auto !important;        /* Destruye las clases w-full de Tailwind */
+        max-width: 100% !important;
     }
 
-    /* 3. Textos fluidos */
-    [role="dialog"] nav ~ * p,
-    [role="dialog"] nav ~ * span,
-    [role="dialog"] nav ~ * label {
-        height: auto !important;
-        white-space: normal !important;
-        word-wrap: break-word !important;
+    /* 4. Destruir los espaciados gigantes entre fila y fila de ajustes */
+    [role="dialog"] nav ~ * div {
+        padding-top: 4px !important;   /* Reduce el espacio vertical entre opciones */
+        padding-bottom: 4px !important;
+        gap: 6px !important;           /* Reduce el espacio horizontal entre texto e interruptor */
     }
 
     /* F. ANIQUILACIÓN DEL BOTÓN CERRAR ("X") */
