@@ -1,47 +1,67 @@
 /* ==========================================================================
-   PARCHE DE INTERFAZ MÓVIL PARA NUCLEAR PLAYER - COMPLETAMENTE COMENTADO
+   PARCHE MÓVIL NUCLEAR PLAYER - CSS DEFINITIVO (V6 - RESTRICCIÓN TOTAL)
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   1. AJUSTES DE LA PANTALLA PRINCIPAL Y LA BARRA SUPERIOR (NOTCH)
+   1. PANTALLA PRINCIPAL Y BARRA DE NOTIFICACIONES (NOTCH)
    -------------------------------------------------------------------------- */
 body, #root {
     padding: 0 !important;
-    overscroll-behavior-y: none;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
 }
 
 [data-tauri-drag-region], .titlebar {
     display: flex !important;
-    /* ALTURA DEL NOTCH: Si la pantalla principal se ve muy abajo, disminuye este número (ej: 16px) */
     padding-top: env(safe-area-inset-top, 24px) !important; 
     height: auto !important;
     -webkit-app-region: no-drag !important; 
 }
 
-/* ==========================================================================
-   2. RECONSTRUCCIÓN DEL MODAL (ANULACIÓN DE ESTIRAMIENTO FLEXBOX)
-   ========================================================================== */
 @media screen and (max-width: 768px) {
-    
-    /* A. EL RADAR ESTRUCTURAL (Detecta y controla el contenedor principal) */
+
+    /* --------------------------------------------------------------------------
+       2. LA BALA DE PLATA: CONTENCIÓN HORIZONTAL ABSOLUTA
+       -------------------------------------------------------------------------- */
+    /* A. Fuerza a todas las cajas a poder encogerse por debajo de su tamaño natural */
+    [role="dialog"] * {
+        max-width: 100% !important;
+        min-width: 0 !important; /* CRÍTICO: Desactiva el desbordamiento flexbox */
+        box-sizing: border-box !important;
+    }
+
+    /* B. Destructor de textos largos (Rutas de archivos, URLs, IDs) */
+    [role="dialog"] p, 
+    [role="dialog"] span, 
+    [role="dialog"] div, 
+    [role="dialog"] label, 
+    [role="dialog"] input {
+        overflow-wrap: anywhere !important; /* Obliga a partir palabras si no caben */
+        word-break: break-word !important;
+        white-space: normal !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       3. EL RADAR ESTRUCTURAL Y LA VENTANA PRINCIPAL
+       -------------------------------------------------------------------------- */
+    /* Obliga al contenedor padre oculto de React a ser una columna */
     [role="dialog"] *:has(> nav) {
         display: flex !important;
         flex-direction: column !important; 
         width: 100% !important;
-        max-width: 100% !important;
         height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
     }
 
-    /* B. LA VENTANA PRINCIPAL (Marco exterior gris) */
+    /* La Ventana Flotante Gris */
     [role="dialog"] {
         display: flex !important;
         flex-direction: column !important;
         
-        width: 96vw !important;            
-        max-width: 96vw !important;
+        /* CÁLCULO ESTRICTO: 100% real menos un margen seguro de 24px */
+        width: 100% !important;            
+        max-width: calc(100% - 24px) !important;
         height: 85vh !important;           
         max-height: 85vh !important;
         
@@ -53,10 +73,12 @@ body, #root {
         margin: 0 !important;
         background-color: #0d0e11 !important; 
         border-radius: 12px !important;    
-        overflow: hidden !important;       
+        
+        /* GUILLOTINA: Corta físicamente cualquier pixel rebelde */
+        overflow-x: hidden !important;       
     }
 
-    /* C. ELIMINACIÓN ABSOLUTA DEL BOTÓN DE CERRAR ("X") */
+    /* Aniquilación del botón de cerrar de Radix UI */
     [role="dialog"] button[class*="absolute"],
     [role="dialog"] button[aria-label*="Close" i],
     [role="dialog"] button[class*="Close" i] {
@@ -65,99 +87,93 @@ body, #root {
         height: 0 !important;
     }
 
-    /* D. LA BARRA DE NAVEGACIÓN SUPERIOR (Pestañas) */
+    /* --------------------------------------------------------------------------
+       4. EL MENÚ SUPERIOR (PESTAÑAS DESLIZABLES)
+       -------------------------------------------------------------------------- */
     [role="dialog"] nav {
         display: flex !important;
         flex-direction: column !important;
         width: 100% !important;
         flex: 0 0 auto !important; /* Protege el alto del menú */
-        padding: 6px !important;
+        padding: 8px !important;
         margin: 0 !important;
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-        box-sizing: border-box !important;
     }
 
-    [role="dialog"] nav div {
+    /* Carril de botones horizontal */
+    [role="dialog"] nav > div {
         display: flex !important;
         flex-direction: row !important; 
         flex-wrap: nowrap !important;
         overflow-x: auto !important;    
         overflow-y: hidden !important;
-        gap: 6px !important;
+        gap: 8px !important;
         width: 100% !important;
+        padding-bottom: 4px !important;
     }
 
+    /* Botones de las pestañas */
     [role="dialog"] nav button {
         flex: 0 0 auto !important;
-        width: fit-content !important;
-        padding: 4px 10px !important;
+        width: max-content !important; /* Excepción para que el botón no corte su propio texto */
+        padding: 6px 12px !important;
         font-size: 13px !important; 
+        border-radius: 20px !important;
     }
 
-    /* E. EL PANEL DE CONTENIDO (Fondo de las opciones) */
+    /* --------------------------------------------------------------------------
+       5. EL PANEL DE CONTENIDO (ZONA DE AJUSTES)
+       -------------------------------------------------------------------------- */
     [role="dialog"] nav ~ * {
         display: flex !important;
         flex-direction: column !important;
-        
-        /* Solución al alto gigante: Agrupa todo arriba en vez de espaciarlo */
-        justify-content: flex-start !important; 
+        justify-content: flex-start !important; /* Apila el contenido arriba */
         
         width: 100% !important;
-        flex: 1 1 auto !important; /* Este es el único elemento que debe rellenar el alto */
+        flex: 1 1 auto !important; /* Rellena el alto sobrante de la ventana */
         
         padding: 12px !important;
-        overflow-y: auto !important;   
-        overflow-x: hidden !important; 
-        box-sizing: border-box !important;
+        margin: 0 !important;
+        overflow-y: auto !important;   /* Scroll vertical activo */
+        overflow-x: hidden !important; /* Prohibido scroll horizontal */
     }
 
-    /* F. LA CURA AL GIGANTISMO (Restricción estricta de ejes) */
+    /* --------------------------------------------------------------------------
+       6. CURA AL GIGANTISMO (APLASTAMIENTO VERTICAL Y HORIZONTAL)
+       -------------------------------------------------------------------------- */
     
-    /* 1. Las cajas de cada fila de ajustes */
+    /* Filas individuales de cada ajuste */
     [role="dialog"] nav ~ * div {
         display: flex !important;
         flex-direction: column !important;
-        
-        /* SOLUCIÓN AL ANCHO GIGANTE: Empuja el contenido a la izquierda, sin estirar */
-        align-items: flex-start !important; 
-        
-        /* SOLUCIÓN AL ALTO GIGANTE: Solo ocupan lo que mide su texto, no crecen */
-        flex: 0 0 auto !important; 
+        align-items: flex-start !important; /* Empuja el contenido a la izquierda */
+        flex: 0 0 auto !important;          /* Impide que la fila gane altura vacía */
         height: max-content !important; 
-        
         width: 100% !important;
         padding: 6px 0 !important;
         margin: 0 !important;
-        box-sizing: border-box !important;
     }
 
-    /* 2. Restricción de Botones, Inputs e Interruptores */
+    /* Interruptores, Inputs y Botones de opciones */
     [role="dialog"] nav ~ * button,
     [role="dialog"] nav ~ * input,
     [role="dialog"] nav ~ * select,
     [role="dialog"] nav ~ * [role="switch"],
     [role="dialog"] nav ~ * [role="checkbox"] {
-        
-        /* Destruye las clases de ancho al 100% de Tailwind */
-        width: max-content !important; 
-        max-width: 100% !important;
-        
-        /* Fija un alto pequeño y estético */
-        height: 28px !important;       
+        width: max-content !important; /* Anula los anchos 100% de Tailwind */
+        height: 28px !important;       /* Alto fijo estético */
         min-height: 28px !important;
         max-height: 28px !important;
-        
         flex: 0 0 auto !important;
-        padding: 2px 12px !important;
-        margin-top: 4px !important; /* Espacio para que no se pegue al texto superior */
-        font-size: 12px !important;
         
-        /* Doble seguro para evitar estiramientos horizontales */
-        align-self: flex-start !important; 
+        padding: 2px 12px !important;
+        margin-top: 4px !important; 
+        font-size: 12px !important;
+        align-self: flex-start !important; /* Evita estiramiento lateral */
     }
 
-    /* 3. Textos e Iconos controlados */
+    /* Control de Iconos Vectoriales */
     [role="dialog"] svg {
         width: 16px !important;        
         height: 16px !important;
@@ -165,6 +181,7 @@ body, #root {
         flex-shrink: 0 !important;
     }
 
+    /* Textos Base */
     [role="dialog"] p, 
     [role="dialog"] span, 
     [role="dialog"] label, 
@@ -172,8 +189,6 @@ body, #root {
     [role="dialog"] h2 {
         font-size: 13px !important;    
         line-height: 1.3 !important;
-        white-space: normal !important;
-        word-wrap: break-word !important;
-        flex: 0 0 auto !important; /* Impide que el texto intente rellenar la pantalla */
+        flex: 0 0 auto !important;
     }
 }
