@@ -20,23 +20,15 @@ body, #root {
 }
 
 /* ==========================================================================
-   2. RECONSTRUCCIÓN DEL MODAL (ESTRUCTURA PERFECTA Y ANTI-GIGANTISMO)
+   2. RECONSTRUCCIÓN DEL MODAL (BALA DE PLATA CONTRA DESBORDAMIENTOS)
    ========================================================================== */
 @media screen and (max-width: 768px) {
     
-    /* A. EL RADAR (Mantiene la estructura arreglada del contenedor) */
-    *:has(> nav) {
+    /* A. LA VENTANA PRINCIPAL (El marco exterior) */
+    [role="dialog"] {
         display: flex !important;
         flex-direction: column !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        height: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* B. LA VENTANA EXTERIOR (Sin el bug del Zoom) */
-    [role="dialog"] {
+        
         width: 96vw !important;
         max-width: 96vw !important;
         height: 85vh !important;
@@ -47,107 +39,105 @@ body, #root {
         transform: translate(-50%, -50%) !important;
         
         padding: 0 !important;
+        margin: 0 !important;
         background-color: #0d0e11 !important;
         border-radius: 12px !important;
-        overflow: hidden !important;
-        /* ZOOM ELIMINADO para evitar que distorsione los botones */
+        overflow: hidden !important; /* Corta físicamente cualquier cosa que intente salir */
     }
 
-    /* C. EL MENÚ SUPERIOR (Pestañas horizontales) */
+    /* B. LA BALA DE PLATA: Bloqueo de Flexbox universal */
+    /* Se aplica a TODOS los elementos dentro de la ventana de ajustes */
+    [role="dialog"] * {
+        max-width: 100% !important;  /* Nadie puede ser más ancho que la pantalla */
+        min-width: 0 !important;     /* OBLIGA a Flexbox a encogerse y romper el texto si no cabe */
+        box-sizing: border-box !important;
+    }
+
+    /* C. EL MENÚ SUPERIOR (Navegación protegida) */
     [role="dialog"] nav {
         display: flex !important;
         flex-direction: column !important;
         width: 100% !important;
-        max-width: 100% !important;
-        min-width: 100% !important; 
-        flex: 0 0 auto !important; 
-        
+        flex: 0 0 auto !important; /* Evita que el menú se aplaste verticalmente */
         padding: 8px !important;
-        margin: 0 !important;
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-        box-sizing: border-box !important;
     }
 
     [role="dialog"] nav > div {
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: nowrap !important;
         width: 100% !important;
-        overflow-x: auto !important;
+        overflow-x: auto !important; /* Permite scroll horizontal a las pestañas */
         overflow-y: hidden !important;
         gap: 8px !important;
-        padding-bottom: 4px !important;
+        flex-wrap: nowrap !important;
     }
 
+    /* Excepción a la bala de plata: Protegemos los botones del menú para que no se corten */
     [role="dialog"] nav button {
-        width: fit-content !important;
+        min-width: max-content !important; 
         flex: 0 0 auto !important;
-        font-size: 0.90rem !important; /* Letra un poco más pequeña y elegante */
+        font-size: 13px !important;
+        padding: 6px 12px !important;
     }
 
-    /* D. EL CONTENEDOR DE LOS AJUSTES (Zona de opciones) */
+    /* D. EL CONTENIDO (Donde están las opciones y los textos) */
+    [role="dialog"] .flex-1,
     [role="dialog"] nav ~ * {
         display: flex !important;
         flex-direction: column !important;
         width: 100% !important;
-        max-width: 100% !important;
-        min-width: 100% !important;
-        flex: 1 1 auto !important; 
+        flex: 1 1 auto !important; /* Ocupa todo el espacio vertical sobrante */
         
-        padding: 12px !important; /* Margen general de la ventana */
-        margin: 0 !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        box-sizing: border-box !important;
+        padding: 12px !important;
+        overflow-y: auto !important; /* Scroll vertical activado */
+        overflow-x: hidden !important; /* PROHIBIDO el scroll horizontal aquí */
     }
 
-    /* E. MODO MINIATURA EXTREMA (LA SOLUCIÓN AL GIGANTISMO) */
+    /* Destruir filas: Si el autor puso [Texto] y [Botón] en fila, oblígalos a saltar de línea */
+    [role="dialog"] .flex-1 div,
+    [role="dialog"] nav ~ * div {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
 
-    /* 1. Reducción global de TODO el texto dentro de los ajustes */
-    [role="dialog"] nav ~ * * {
-        font-size: 12px !important;  /* <- LETRA: Empieza en 12px (muy pequeña). Súbelo a 14px si no lo lees bien */
-        line-height: 1.2 !important; /* <- INTERLINEADO: Muy pegado para ahorrar espacio */
+    /* E. MODO MINIATURA FORZADO (Liquidación del Gigantismo) */
+    
+    /* 1. Textos pequeños y fluidos */
+    [role="dialog"] p, [role="dialog"] span, [role="dialog"] label, [role="dialog"] h1, [role="dialog"] h2 {
+        font-size: 13px !important;
+        line-height: 1.2 !important;
         white-space: normal !important;
         word-wrap: break-word !important;
     }
 
-    /* 2. Iconos en miniatura */
+    /* 2. Iconos matemáticamente restringidos */
     [role="dialog"] svg {
-        width: 16px !important;      /* <- ICONOS: Forzados a 16x16 píxeles */
+        width: 16px !important;
         height: 16px !important;
-        min-width: 16px !important;
-        min-height: 16px !important;
         max-width: 16px !important;
         max-height: 16px !important;
         flex-shrink: 0 !important;
     }
 
-    /* 3. Controles aplastados (Botones, inputs, selects, interruptores) */
+    /* 3. Botones, interruptores y selects limitados en altura */
+    [role="dialog"] .flex-1 button,
+    [role="dialog"] .flex-1 input,
+    [role="dialog"] .flex-1 select,
     [role="dialog"] nav ~ * button,
     [role="dialog"] nav ~ * input,
-    [role="dialog"] nav ~ * select,
-    [role="dialog"] nav ~ * [role="switch"],
-    [role="dialog"] nav ~ * [role="checkbox"] {
-        height: 28px !important;       /* <- ALTURA DEL BOTÓN: 28px es muy fino. Súbelo a 36px si tu dedo no acierta */
-        max-height: 28px !important;
-        min-height: 20px !important;
-        padding: 4px 8px !important;   /* <- RELLENO DEL BOTÓN: Apenas 4px de aire arriba y abajo */
-        margin: 2px 0 !important;
-        width: auto !important;        /* Destruye las clases w-full de Tailwind */
-        max-width: 100% !important;
+    [role="dialog"] nav ~ * select {
+        height: auto !important;
+        min-height: 28px !important;
+        max-height: 36px !important;
+        padding: 4px 8px !important;
+        font-size: 13px !important;
+        flex-shrink: 0 !important;
     }
 
-    /* 4. Destruir los espaciados gigantes entre fila y fila de ajustes */
-    [role="dialog"] nav ~ * div {
-        padding-top: 4px !important;   /* Reduce el espacio vertical entre opciones */
-        padding-bottom: 4px !important;
-        gap: 6px !important;           /* Reduce el espacio horizontal entre texto e interruptor */
-    }
-
-    /* F. ANIQUILACIÓN DEL BOTÓN CERRAR ("X") */
-    [role="dialog"] > button[class*="absolute"],
-    [role="dialog"] button[aria-label*="Close" i] {
+    /* F. ANIQUILAR BOTÓN DE CERRAR DE RADIX UI */
+    [role="dialog"] > button[class*="absolute"] {
         display: none !important;
     }
 }
