@@ -16,7 +16,8 @@ jobs:
       - name: Descargar el código fuente
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # CRÍTICO: Necesario para descargar el historial y poder fusionar (merge)
+          fetch-depth: 0 
+          token: ${{ secrets.PAT_TOKEN }} # 🔑 LA LLAVE MAESTRA QUE EVITA EL BLOQUEO
 
       - name: Configurar identidad de Git
         run: |
@@ -28,21 +29,21 @@ jobs:
           git remote add upstream https://github.com/nukeop/nuclear.git
           git fetch upstream
 
-          # Guardamos el estado seguro previo
           ESTADO_PREVIO=$(git rev-parse HEAD)
 
-          # 1. Fusión en memoria sin confirmación automática
+          # Fusión en memoria sin confirmación automática
           git merge upstream/master --allow-unrelated-histories -X theirs --no-commit || true
 
-          # 2. HACK DE INTERCEPCIÓN: Restauramos la zona prohibida (.github/workflows) a su estado original
+          # Restauramos nuestra carpeta de workflows para proteger nuestro android.yml
           git checkout $ESTADO_PREVIO -- .github/workflows/
 
-          # 3. Confirmamos la fusión manualmente con la zona limpia
-          git commit -m "Merge upstream/master (Omitiendo actualizaciones de workflows por seguridad)" || true
+          # Confirmamos la fusión manualmente
+          git commit -m "Merge upstream/master (Protegiendo workflows propios)" || true
 
           ESTADO_NUEVO=$(git rev-parse HEAD)
 
           if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
+            # Ahora el push usará el PAT_TOKEN y GitHub lo dejará pasar
             git push origin HEAD:main
             echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
             echo "¡Actualización detectada, filtrada y fusionada con éxito!"
