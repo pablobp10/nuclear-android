@@ -84,7 +84,7 @@ jobs:
             let manifest = fs.readFileSync(manifestPath, "utf8");
             if (!manifest.includes("android.permission.INTERNET")) {
               const permisosAndroid = `
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET" />  # <--- LÍNEA 85 (¡Solo tiene 4 espacios!)
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
