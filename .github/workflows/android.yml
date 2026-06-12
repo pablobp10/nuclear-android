@@ -1,8 +1,6 @@
 name: Build Android APK
 
 on:
-  # push:
-  #  branches: [ main ]
   workflow_dispatch:
 
 env:
@@ -15,42 +13,6 @@ jobs:
     steps:
       - name: Descargar el código fuente
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 
-
-      - name: Configurar identidad de Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Sincronizar con el repositorio original (Upstream)
-        run: |
-          git remote add upstream https://github.com/nukeop/nuclear.git
-          git fetch upstream
-
-          ESTADO_PREVIO=$(git rev-parse HEAD)
-
-          # 1. ESTRATEGIA SQUASH: Trae el código nuevo pero DESTRUYE el historial de commits original
-          git merge upstream/master --squash -X theirs --allow-unrelated-histories || true
-
-          # 2. LIMPIEZA: Sacamos la carpeta .github de los cambios pendientes para no alterar los workflows
-          git reset HEAD .github/ || true
-          git checkout HEAD -- .github/ || true
-
-          # 3. GUARDADO: Como es un Squash, GitHub lo ve como un commit nuevo y limpio nuestro
-          git commit -m "Sincronización de código desde upstream (Modo Squash)" || true
-
-          ESTADO_NUEVO=$(git rev-parse HEAD)
-
-          if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
-            git push origin HEAD:main
-            echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
-            echo "¡Actualización detectada y fusionada con éxito mediante Squash!"
-          else
-            echo "cambios_nuevos=false" >> $GITHUB_OUTPUT
-            echo "Todo está al día. El creador original no ha subido nada nuevo."
-          fi
-        shell: /usr/bin/bash -e {0}
 
       - name: Configurar Java
         uses: actions/setup-java@v4
@@ -84,19 +46,15 @@ jobs:
           const fs = require("fs");
           const path = require("path");
 
-          // 1. Desactivar plugins de escritorio incompatibles con móvil
           const rustPath = "./packages/player/src-tauri/src/lib.rs";
           if (fs.existsSync(rustPath)) {
             let code = fs.readFileSync(rustPath, "utf8");
             code = code.replace(/tauri_plugin_window_state::Builder::default\(\)\.build\(\)/g, "tauri_plugin_window_state::Builder::default().build()");
             code = code.replace(/tauri_plugin_updater::Builder::new\(\)\.build\(\)/g, "tauri_plugin_updater::Builder::new().build()");
-            // Comentar el plugin de estado de ventana si causa error de compilación
             code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* .plugin(window_state) */");
             fs.writeFileSync(rustPath, code);
-            console.log("✅ lib.rs parcheado (Plugins de escritorio neutralizados)");
           }
 
-          // 2. Whitelist de capacidades de Tauri
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -114,17 +72,11 @@ jobs:
                 }
               } catch(e) {}
             }
-            console.log("✅ Capacidades de Tauri filtradas con permisos de Red.");
           }
 
-          // 3. INYECCIÓN NATIVA DE ANDROID (PERMISOS OS Y CLEARTEXT)
-          // Buscamos el Manifest de Android generado por Tauri
           const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
-          
           if (fs.existsSync(manifestPath)) {
             let manifest = fs.readFileSync(manifestPath, "utf8");
-            
-            // A. Inyectar permisos de Red y Almacenamiento si no existen
             if (!manifest.includes("android.permission.INTERNET")) {
               const permisosAndroid = `
     <uses-permission android:name="android.permission.INTERNET" />
@@ -132,23 +84,14 @@ jobs:
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <application`;
-              // Insertamos los permisos justo antes de abrir la etiqueta <application>
               manifest = manifest.replace("<application", permisosAndroid);
             }
-
-            // B. Permitir tráfico HTTP inseguro (Cleartext)
             if (!manifest.includes('android:usesCleartextTraffic="true"')) {
               manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true"');
             }
-
             fs.writeFileSync(manifestPath, manifest);
-            console.log("✅ AndroidManifest.xml hackeado (Permisos totales de SO inyectados).");
-          } else {
-            console.warn("⚠️ No se encontró AndroidManifest.xml (puede que se genere después).");
           }
-          EOF
 
-          // 4. Purgar dependencias de Cargo.toml
           const cargoPath = "./packages/player/src-tauri/Cargo.toml";
           if (fs.existsSync(cargoPath)) {
             let cargoLines = fs.readFileSync(cargoPath, "utf8").split("\n");
@@ -158,10 +101,8 @@ jobs:
               !line.includes("tauri-plugin-window-state")
             );
             fs.writeFileSync(cargoPath, cargoLines.join("\n"));
-            console.log("✔️ Cargo.toml parcheado");
           }
 
-          // 5. RUST: Módulo Fantasma Dinámico
           const dummyMod = `
           pub mod dummy_plugin {
               pub struct Builder;
@@ -181,26 +122,20 @@ jobs:
                 code = code.replace(/tauri_plugin_window_state/g, "crate::dummy_plugin");
                 code = code.replace(/tauri_plugin_updater/g, "crate::dummy_plugin");
                 code = code.replace(/tauri_plugin_process/g, "crate::dummy_plugin");
-                if (!code.includes("pub mod dummy_plugin")) {
-                  code = dummyMod + "\n" + code;
-                }
+                if (!code.includes("pub mod dummy_plugin")) { code = dummyMod + "\n" + code; }
                 fs.writeFileSync(f, code);
-                console.log("✔️ Plugins neutralizados con alias en", f);
               }
             }
           });
 
-          // 6. RUST YT-DLP: Retorno inyectado a la fuerza
           const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
           if (fs.existsSync(ytdlpPath)) {
             let code = fs.readFileSync(ytdlpPath, "utf8");
             code = code.replace(/fn\s+release_filename.*?\{/g, "fn release_filename() -> &'static str { return \"yt-dlp\";");
             code = code.replace(/fn\s+binary_name.*?\{/g, "fn binary_name() -> &'static str { return \"yt-dlp\";");
             fs.writeFileSync(ytdlpPath, code);
-            console.log("✔️ yt-dlp parcheado para Android");
           }
 
-          // 7. PARCHE PARA ESBUILD EN ANDROID (WASM URL ABSOLUTA)
           const compilerPath = "./packages/player/src/services/plugins/pluginCompiler.ts";
           if (fs.existsSync(compilerPath)) {
             let code = fs.readFileSync(compilerPath, "utf8");
@@ -209,10 +144,8 @@ jobs:
               `const fullWasmUrl = new URL(wasmUrl, window.location.origin).href;\n      await es.mod.initialize({ wasmURL: fullWasmUrl, worker: false });`
             );
             fs.writeFileSync(compilerPath, code);
-            console.log("✔️ pluginCompiler.ts parcheado (WASM URL estabilizada para WebView)");
           }
 
-          // 8. PARCHE PARA ERROR DE RUTAS EN TAURI MOBILE (Conflicto BaseDirectory)
           const dirPath = "./packages/player/src/services/plugins/pluginDir.ts";
           if (fs.existsSync(dirPath)) {
             let code = fs.readFileSync(dirPath, "utf8");
@@ -221,45 +154,27 @@ jobs:
             code = code.replace(/await mkdir\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g,
                                 "await mkdir(destination, { recursive: true });");
             fs.writeFileSync(dirPath, code);
-            console.log("✔️ pluginDir.ts parcheado (Resolución de rutas absolutas corregida)");
           }
           EOF
 
       - name: 🛠️ Ejecutar Parches
         run: node patch.cjs
 
-      - name: 🛠️ Inyectar Sondas y Parches Táctiles (Debug y CSS V12)
+      - name: 🛠️ Inyectar Sondas y CSS V12
         run: |
-          # 1. BÚSQUEDA DINÁMICA DEL TYPESCRIPT Y SOBRESCRITURA
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
-          if [ -z "$TS_FILE" ]; then
-            echo "❌ ERROR: No se encontró useInstallPlugin.ts. La compilación fallará."
-            exit 1
-          fi
-          
-          echo "✔️ Archivo TypeScript encontrado en: $TS_FILE. Sobrescribiendo..."
-          
+          if [ -n "$TS_FILE" ]; then
           cat << 'EOF' > "$TS_FILE"
           import { useMutation } from '@tanstack/react-query';
           import { toast } from 'sonner';
-
           import { useTranslation } from '@nuclearplayer/i18n';
-
-          import {
-            pluginMarketplaceApi,
-            type MarketplacePlugin,
-          } from '../apis/pluginMarketplaceApi';
-          import {
-            cleanupDownload,
-            downloadAndExtractPlugin,
-          } from '../services/plugins/pluginDownloader';
+          import { pluginMarketplaceApi, type MarketplacePlugin } from '../apis/pluginMarketplaceApi';
+          import { cleanupDownload, downloadAndExtractPlugin } from '../services/plugins/pluginDownloader';
           import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
 
-          type InstallPluginParams = {
-            plugin: MarketplacePlugin;
-          };
+          type InstallPluginParams = { plugin: MarketplacePlugin; };
 
           export const useInstallPlugin = () => {
             const { t } = useTranslation('plugins');
@@ -268,155 +183,65 @@ jobs:
 
             return useMutation({
               mutationFn: async ({ plugin }: InstallPluginParams) => {
-                console.log(`[DEBUG PLUGIN] 1. Iniciando instalación de: ${plugin.id}`);
-
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
-                console.log(`[DEBUG PLUGIN] 2. Release obtenida: URL -> ${release.downloadUrl}`);
-
-                console.log(`[DEBUG PLUGIN] 3. Descargando y extrayendo...`);
                 const extractedPath = await downloadAndExtractPlugin({
-                  pluginId: plugin.id,
-                  downloadUrl: release.downloadUrl,
+                  pluginId: plugin.id, downloadUrl: release.downloadUrl,
                 });
-                console.log(`[DEBUG PLUGIN] 4. Extraído correctamente en: ${extractedPath}`);
-
                 try {
                   const now = new Date().toISOString();
-                  console.log(`[DEBUG PLUGIN] 5. Actualizando registro...`);
                   await upsertRegistryEntry({
-                    id: plugin.id,
-                    version: release.version,
-                    path: extractedPath,
-                    installationMethod: 'store',
-                    enabled: false,
-                    installedAt: now,
-                    lastUpdatedAt: now,
+                    id: plugin.id, version: release.version, path: extractedPath,
+                    installationMethod: 'store', enabled: false,
+                    installedAt: now, lastUpdatedAt: now,
                   });
-
-                  console.log(`[DEBUG PLUGIN] 6. Cargando plugin desde la ruta...`);
                   await loadPluginFromPath(extractedPath);
-
-                  console.log(`[DEBUG PLUGIN] 7. Habilitando plugin...`);
                   await enablePlugin(plugin.id);
-
-                  console.log(`[DEBUG PLUGIN] 8. INSTALACIÓN COMPLETADA CON ÉXITO.`);
-                } catch (error) {
-                  console.error(`[DEBUG PLUGIN FATAL ERROR] Fallo en la fase de carga/registro:`, error);
-                  throw error;
-                } finally {
-                  console.log(`[DEBUG PLUGIN] 9. Limpiando archivos temporales...`);
-                  await cleanupDownload(plugin.id);
-                }
-
+                } catch (error) { throw error; } 
+                finally { await cleanupDownload(plugin.id); }
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
                 const message = resolveErrorMessage(error);
-                toast.error(t('store.installError.title', { name: plugin.name }), {
-                  description: message,
-                });
+                toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
               },
             });
           };
           EOF
-          
-          # 2. LOCALIZACIÓN E INYECCIÓN DIRECTA EN LA CARPETA PUBLIC CON CSS V12 (PANTALLA COMPLETA)
-          PUBLIC_DIR="./packages/player/public"
-          if [ ! -d "$PUBLIC_DIR" ]; then
-            PUBLIC_DIR=$(find ./packages/player -type d -name "public" | head -n 1)
           fi
-
+          
+          PUBLIC_DIR="./packages/player/public"
+          if [ ! -d "$PUBLIC_DIR" ]; then PUBLIC_DIR=$(find ./packages/player -type d -name "public" | head -n 1); fi
           if [ -n "$PUBLIC_DIR" ]; then
             CSS_FILE="$PUBLIC_DIR/android-fixes.css"
-            echo "✔️ Generando diseño móvil en: $CSS_FILE..."
             cat << 'EOF' > "$CSS_FILE"
-          /* ==========================================================================
-             PARCHE MÓVIL NUCLEAR PLAYER - V12 (PANTALLA COMPLETA NATIVA)
-             ========================================================================== */
-
           body, #root { padding: 0 !important; overflow: hidden !important; }
           [data-state="open"], [data-radix-popper-content-wrapper] { padding: 0 !important; margin: 0 !important; }
-
-          [role="dialog"] {
-              position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-              width: 100vw !important; max-width: 100vw !important; height: 100vh !important; max-height: 100vh !important;
-              margin: 0 !important; padding: 0 !important; border-radius: 0 !important; border: none !important;
-              transform: none !important; display: flex !important; flex-direction: row !important;
-              background-color: transparent !important;
-          }
-
-          [role="dialog"] > div:has(nav) {
-              display: flex !important; flex-direction: row !important; width: 100% !important; height: 100% !important;
-          }
-
+          [role="dialog"] { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; max-width: 100vw !important; height: 100vh !important; max-height: 100vh !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important; border: none !important; transform: none !important; display: flex !important; flex-direction: row !important; background-color: transparent !important; }
+          [role="dialog"] > div:has(nav) { display: flex !important; flex-direction: row !important; width: 100% !important; height: 100% !important; }
           [role="dialog"] button[class*="absolute"] { display: none !important; }
-
-          [role="dialog"] nav {
-              display: flex !important; flex-direction: column !important; width: 35% !important;
-              min-width: 120px !important; max-width: 140px !important; height: 100% !important;
-              flex-shrink: 0 !important; overflow-y: auto !important; overflow-x: hidden !important;
-              padding: 12px 6px !important; border-right: 1px solid rgba(0,0,0,0.1) !important;
-          }
-
-          [role="dialog"] nav button {
-              width: 100% !important; flex-shrink: 0 !important; padding: 10px 8px !important; margin-bottom: 4px !important;
-              font-size: 13px !important; text-align: left !important; white-space: normal !important;
-          }
-
+          [role="dialog"] nav { display: flex !important; flex-direction: column !important; width: 35% !important; min-width: 120px !important; max-width: 140px !important; height: 100% !important; flex-shrink: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 12px 6px !important; border-right: 1px solid rgba(0,0,0,0.1) !important; }
+          [role="dialog"] nav button { width: 100% !important; flex-shrink: 0 !important; padding: 10px 8px !important; margin-bottom: 4px !important; font-size: 13px !important; text-align: left !important; white-space: normal !important; }
           [role="dialog"] nav > div:last-child { display: none !important; }
-
-          [role="dialog"] nav ~ * {
-              display: flex !important; flex-direction: column !important; flex: 1 1 auto !important; width: 100% !important; 
-              height: 100% !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 12px !important;
-          }
-
+          [role="dialog"] nav ~ * { display: flex !important; flex-direction: column !important; flex: 1 1 auto !important; width: 100% !important; height: 100% !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 12px !important; }
           [role="dialog"] nav ~ * div { flex-wrap: wrap !important; }
-
-          [role="dialog"] nav ~ * button {
-              flex-shrink: 0 !important; width: max-content !important; min-width: min-content !important; height: auto !important;
-              min-height: 28px !important; white-space: nowrap !important; padding: 4px 10px !important; margin: 2px !important; font-size: 12px !important;
-          }
-
-          [role="dialog"] nav ~ * input[type="text"], [role="dialog"] nav ~ * input[placeholder*="Search"] { 
-              width: 100% !important; flex-shrink: 1 !important; min-height: 32px !important; margin-bottom: 8px !important; 
-          }
-
-          [role="dialog"] p, [role="dialog"] span, [role="dialog"] label, [role="dialog"] pre { 
-              word-break: normal !important; overflow-wrap: anywhere !important; 
-          }
-
+          [role="dialog"] nav ~ * button { flex-shrink: 0 !important; width: max-content !important; min-width: min-content !important; height: auto !important; min-height: 28px !important; white-space: nowrap !important; padding: 4px 10px !important; margin: 2px !important; font-size: 12px !important; }
+          [role="dialog"] nav ~ * input[type="text"], [role="dialog"] nav ~ * input[placeholder*="Search"] { width: 100% !important; flex-shrink: 1 !important; min-height: 32px !important; margin-bottom: 8px !important; }
+          [role="dialog"] p, [role="dialog"] span, [role="dialog"] label, [role="dialog"] pre { word-break: normal !important; overflow-wrap: anywhere !important; }
           [role="dialog"] svg { width: 14px !important; height: 14px !important; flex-shrink: 0 !important; margin-right: 4px !important; }
           EOF
-          else
-            echo "❌ ERROR: No se encontró la carpeta 'public'. Parche abortado."
-            exit 1
           fi
 
-      - name: 🛠️ Aplicar UI de Android (Arquitectura Shadowing)
-        run: |
-          if [ -d "android_ui" ]; then
-            cp -a android_ui/. ./
-            echo "¡Archivos de UI personalizados inyectados con éxito en la RAM!"
-          else
-            echo "No se detectó carpeta 'android_ui'. Se utilizará la UI original."
-          fi
-          
       - name: Compilar Frontend y Dependencias (React)
         run: pnpm run build --filter "@nuclearplayer/player"
 
-      - name: Construir y Compilar APK (Tauri Android - DEBUG)
+      - name: Construir y Compilar APK
         run: |
           cd packages/player
-          
           rm -rf src-tauri/gen/android
-          
           npx tauri android init
-          
           cp public/logo-icon-on-white.png src-tauri/icons/icon.png
           cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
-          
           npx tauri icon public/logo-icon-on-white.png
-          
           npx tauri android build --debug --apk --target aarch64
 
       - name: Subir APK final
