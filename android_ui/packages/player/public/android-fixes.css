@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V8 (UI PERFECTA: TEMA NATIVO Y PESTAÑAS)
+   PARCHE MÓVIL NUCLEAR PLAYER - V9 (FUSIÓN MAESTRA Y EXPANSIÓN ROSA)
    ========================================================================== */
 
 /* 1. PANTALLA PRINCIPAL */
@@ -18,7 +18,7 @@ body, #root {
 
 @media screen and (max-width: 768px) {
 
-    /* 2. PROTECCIÓN UNIVERSAL (Apisonadora de desbordamientos) */
+    /* 2. PROTECCIÓN UNIVERSAL CONTRA DESBORDAMIENTOS */
     [role="dialog"] * {
         max-width: 100% !important;
         min-width: 0 !important; 
@@ -31,15 +31,19 @@ body, #root {
         white-space: normal !important;
     }
 
-    /* 3. EL CONTENEDOR PRINCIPAL (Sin bandas negras) */
+    /* 3. LA VENTANA PRINCIPAL (Ajuste para que el rosa la llene) */
     [role="dialog"] *:has(> nav) {
         display: flex !important;
         flex-direction: column !important; 
+        
+        /* EXPANSIÓN OBLIGATORIA DEL FONDO ROSA */
         width: 100% !important;
+        min-width: 100% !important; 
         height: 100% !important;
+        
         margin: 0 !important;
         padding: 0 !important;
-        background: transparent !important; /* Hereda el color del tema */
+        background: inherit !important;
     }
 
     [role="dialog"] {
@@ -56,31 +60,35 @@ body, #root {
         top: 50% !important; left: 50% !important;
         transform: translate(-50%, -50%) !important;
         
-        /* ELIMINADO EL FONDO NEGRO. Así el rosa (o el tema que sea) llena toda la caja */
-        background: transparent !important; 
+        /* Quitamos fondos grises/negros para que el tema rosa domine todo */
+        background-color: transparent !important; 
         border-radius: 12px !important;    
         overflow: hidden !important; 
-        border: none !important; /* Sin bordes que generen líneas falsas */
     }
 
+    /* Ocultar botón de cerrar de escritorio */
     [role="dialog"] button[class*="absolute"] {
         display: none !important;
     }
 
-    /* 4. EL MENÚ SUPERIOR (Inmune a la minificación) */
+    /* 4. EL MENÚ SUPERIOR (Tus selectores exactos de la V7) */
     [role="dialog"] nav {
         display: flex !important;
         flex-direction: column !important;
+        
+        /* EXPANSIÓN HORIZONTAL PARA MATAR BANDAS GRISES */
         width: 100% !important;            
+        min-width: 100% !important; 
         height: auto !important;
         flex: 0 0 auto !important; 
+        
         border-right: none !important;     
         border-bottom: 2px solid rgba(128, 128, 128, 0.2) !important; 
         padding: 8px !important;           
     }
 
-    /* Carril de pestañas: Atacamos al PRIMER div sin importar sus clases */
-    [role="dialog"] nav > div:first-child {
+    /* Carril de pestañas (Tu selector mágico) */
+    [role="dialog"] nav > div.flex-col {
         display: flex !important;
         flex-direction: row !important;    
         overflow-x: auto !important;       
@@ -92,41 +100,39 @@ body, #root {
     }
 
     /* Botones de las pestañas */
-    [role="dialog"] nav > div:first-child > button {
-        display: flex !important;
+    [role="dialog"] nav button {
         flex: 0 0 auto !important;         
-        width: max-content !important;     
-        min-width: max-content !important; 
+        width: fit-content !important;     
+        min-width: max-content !important; /* Protege a los botones de aplastarse */
         border-radius: 20px !important;    
-        padding: 6px 14px !important;
+        padding: 6px 12px !important;
         font-size: 13px !important;
-        align-items: center !important;
-        background-color: rgba(128, 128, 128, 0.15) !important; /* Fondo suave para distinguirlos del fondo rosa */
     }
 
-    /* Ocultar la versión (navFooter) para que no rompa el menú táctil */
-    [role="dialog"] nav > div:last-child:not(:first-child) {
+    /* Ocultar el número de versión para que no moleste en el menú táctil */
+    [role="dialog"] nav > div.mt-auto {
         display: none !important;
     }
 
-    /* 5. EL CONTENIDO DE LOS AJUSTES (Inmune a la minificación) */
-    /* Atacamos al div que va después del nav, ignorando la clase flex-1 */
-    [role="dialog"] nav ~ div {
+    /* 5. EL CONTENIDO DE LOS AJUSTES (Tu selector div.flex-1) */
+    [role="dialog"] div.flex-1 {
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;
         
+        /* EXPANSIÓN HORIZONTAL PARA MATAR BANDAS GRISES */
         width: 100% !important;
+        min-width: 100% !important; 
         flex: 1 1 auto !important; 
         
         overflow-y: auto !important;       
         overflow-x: hidden !important;
-        padding: 16px !important;
+        padding: 12px !important;
         margin: 0 !important;
     }
 
-    /* 6. LA VACUNA ANTI-GIGANTISMO */
-    [role="dialog"] nav ~ div > div {
+    /* 6. LA VACUNA ANTI-GIGANTISMO (Mantiene las proporciones perfectas) */
+    [role="dialog"] div.flex-1 > div {
         display: flex !important;
         flex-direction: column !important;
         align-items: flex-start !important; 
@@ -137,11 +143,11 @@ body, #root {
         margin: 0 !important;
     }
 
-    [role="dialog"] nav ~ div button,
-    [role="dialog"] nav ~ div input,
-    [role="dialog"] nav ~ div select,
-    [role="dialog"] nav ~ div [role="switch"],
-    [role="dialog"] nav ~ div [role="checkbox"] {
+    [role="dialog"] div.flex-1 button,
+    [role="dialog"] div.flex-1 input,
+    [role="dialog"] div.flex-1 select,
+    [role="dialog"] div.flex-1 [role="switch"],
+    [role="dialog"] div.flex-1 [role="checkbox"] {
         width: max-content !important; 
         height: 28px !important;       
         min-height: 28px !important;
