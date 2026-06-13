@@ -228,7 +228,9 @@ jobs:
           fi
           
       - name: Compilar Frontend y Dependencias (React)
-        run: pnpm run build:frontend --filter "@nuclearplayer/player"
+        run: |
+          cd packages/player
+          pnpm run build:frontend
 
       - name: Construir y Compilar APK (Tauri Android - DEBUG)
         run: |
