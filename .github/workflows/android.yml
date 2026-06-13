@@ -76,18 +76,19 @@ jobs:
                   data.permissions.push("core:window:allow-set-decorations");
                   data.permissions.push("core:window:allow-set-size");
                   
-                  // SUPER PARCHE: Perforación del FS Scope para la carpeta Downloads de Android
+                  // SUPER PARCHE: Perforación del FS Scope (SINTAXIS TAURI V2 CORRECTA)
                   const fsHacks = [
                     "fs:allow-read",
                     "fs:allow-exists",
                     "fs:allow-stat",
                     "fs:allow-read-text-file",
-                    "fs:allow-read-dir"
+                    "fs:allow-read-dir",
+                    "fs:allow-write"
                   ];
                   fsHacks.forEach(id => {
                     data.permissions.push({
                       identifier: id,
-                      allow: [{ path: "/**" }, { path: "/storage/**" }, { path: "$DOWNLOAD/**" }]
+                      allow: ["**", "/storage/**", "/storage/emulated/0/Download/**", "$DOWNLOAD/**"]
                     });
                   });
                   
