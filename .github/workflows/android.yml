@@ -66,16 +66,12 @@ jobs:
               try {
                 const data = JSON.parse(fs.readFileSync(fPath, "utf8"));
                 if (data.permissions) {
-                  // Filtramos los prohibidos
                   data.permissions = data.permissions.filter(p => {
                     const pName = typeof p === "string" ? p : p.identifier;
                     return pName && permitidos.some(prefix => pName.startsWith(prefix));
                   });
-                  
-                  // INYECCIÓN DE EMERGENCIA: Forzamos la autorización silenciosa del decorador de ventana
                   data.permissions.push("core:window:allow-set-decorations");
                   data.permissions.push("core:window:allow-set-size");
-                  
                   fs.writeFileSync(fPath, JSON.stringify(data, null, 2));
                 }
               } catch(e) {}
@@ -169,6 +165,45 @@ jobs:
                                 "await mkdir(destination, { recursive: true });");
             fs.writeFileSync(dirPath, code);
           }
+
+          // 9. SUPER PARCHE DE FRONTEND: Neutralizar APIs incompatibles con móvil (Window y Dialog)
+          function walkSync(currentDirPath, callback) {
+            fs.readdirSync(currentDirPath).forEach(function (name) {
+                var filePath = path.join(currentDirPath, name);
+                var stat = fs.statSync(filePath);
+                if (stat.isFile()) {
+                    callback(filePath);
+                } else if (stat.isDirectory()) {
+                    walkSync(filePath, callback);
+                }
+            });
+          }
+
+          walkSync("./packages/player/src", function(filePath) {
+            if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) {
+              let code = fs.readFileSync(filePath, "utf8");
+              let changed = false;
+
+              // Neutralizar el explorador de carpetas (Folder Picker) devolviendo la carpeta Downloads nativa
+              if (code.includes("@tauri-apps/plugin-dialog")) {
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
+                `const open = async () => "/storage/emulated/0/Download/NuclearPlugins"; const message = async () => {}; const ask = async () => true; const confirm = async () => true;`);
+                changed = true;
+              }
+
+              // Neutralizar controles de Ventana de PC (Window API)
+              if (code.includes("@tauri-apps/api/window")) {
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
+                `const getCurrentWindow = () => ({ setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false }); const appWindow = getCurrentWindow();`);
+                changed = true;
+              }
+
+              if (changed) {
+                fs.writeFileSync(filePath, code);
+                console.log("✔️ APIs de Escritorio neutralizadas en " + filePath);
+              }
+            }
+          });
           EOF
 
       - name: 🛠️ Ejecutar Parches de Sistema
