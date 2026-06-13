@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Whitelist de capacidades de Tauri y SUPER CAPACIDAD ANDROID
+          // 2. Whitelist de capacidades de Tauri y LLAVES MAESTRAS DE FS SCOPE
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -70,52 +70,36 @@ jobs:
                     const pName = typeof p === "string" ? p : p.identifier;
                     return pName && permitidos.some(prefix => pName.startsWith(prefix));
                   });
+                  
+                  // Hackeo de ventana
+                  data.permissions.push("core:window:allow-set-decorations");
+                  data.permissions.push("core:window:allow-set-size");
+                  
+                  // LLAVES MAESTRAS DEL FIREWALL DE TAURI V2
+                  const fsHacks = [
+                    "fs:allow-read",
+                    "fs:allow-write",
+                    "fs:allow-exists",
+                    "fs:allow-stat",
+                    "fs:allow-read-dir",
+                    "fs:scope-download-recursive",
+                    "fs:scope-document-recursive",
+                    "fs:scope-app-data-recursive",
+                    "fs:scope-app-local-data-recursive",
+                    "fs:scope-app-cache-recursive"
+                  ];
+                  
+                  fsHacks.forEach(id => {
+                    if (!data.permissions.includes(id)) {
+                      data.permissions.push(id);
+                    }
+                  });
+                  
                   fs.writeFileSync(fPath, JSON.stringify(data, null, 2));
                 }
               } catch(e) {}
             }
           }
-
-          // Añadir Capacidad Suprema sin romper el parseador de Rust (SIN asteriscos globales puros)
-          const almightyCap = {
-            identifier: "android-almighty",
-            windows: ["*"],
-            permissions: [
-              "core:window:allow-set-decorations",
-              "core:window:allow-set-size",
-              "core:window:allow-maximize",
-              "core:window:allow-minimize",
-              "core:window:allow-close",
-              "core:window:allow-hide",
-              "core:window:allow-show",
-              "fs:allow-read",
-              "fs:allow-write",
-              "fs:allow-exists",
-              "fs:allow-stat",
-              "fs:allow-read-dir",
-              {
-                identifier: "fs:allow-read",
-                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
-              },
-              {
-                identifier: "fs:allow-exists",
-                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
-              },
-              {
-                identifier: "fs:allow-stat",
-                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
-              },
-              {
-                identifier: "fs:allow-read-dir",
-                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
-              },
-              {
-                identifier: "fs:allow-write",
-                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
-              }
-            ]
-          };
-          fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
 
           // 3. INYECCIÓN NATIVA DE ANDROID (PERMISOS OS Y CLEARTEXT)
           const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
