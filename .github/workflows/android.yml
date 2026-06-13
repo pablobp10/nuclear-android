@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Whitelist de capacidades de Tauri y LLAVES MAESTRAS DE FS SCOPE
+          // 2. Whitelist de capacidades de Tauri y LLAVES MAESTRAS DE FS SCOPE (Corregido)
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -75,7 +75,7 @@ jobs:
                   data.permissions.push("core:window:allow-set-decorations");
                   data.permissions.push("core:window:allow-set-size");
                   
-                  // LLAVES MAESTRAS DEL FIREWALL DE TAURI V2
+                  // LLAVES MAESTRAS DEL FIREWALL DE TAURI V2 (Sintaxis validada)
                   const fsHacks = [
                     "fs:allow-read",
                     "fs:allow-write",
@@ -84,9 +84,9 @@ jobs:
                     "fs:allow-read-dir",
                     "fs:scope-download-recursive",
                     "fs:scope-document-recursive",
-                    "fs:scope-app-data-recursive",
-                    "fs:scope-app-local-data-recursive",
-                    "fs:scope-app-cache-recursive"
+                    "fs:scope-appdata-recursive",
+                    "fs:scope-applocaldata-recursive",
+                    "fs:scope-appcache-recursive"
                   ];
                   
                   fsHacks.forEach(id => {
