@@ -209,11 +209,12 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (TypeScript Sonda)
+       - name: 🛠️ Parchear Hook de Módulos (TypeScript Sonda)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
           cat << 'EOF' > "$TS_FILE"
+          // @ts-nocheck
           import { useMutation } from '@tanstack/react-query';
           import { toast } from 'sonner';
           import { useTranslation } from '@nuclearplayer/i18n';
@@ -232,10 +233,21 @@ jobs:
 
             return useMutation({
               mutationFn: async ({ plugin }: InstallPluginParams) => {
+                alert("⏳ PASO 1: Conectando a GitHub...");
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
-                const extractedPath = await downloadAndExtractPlugin({
-                  pluginId: plugin.id, downloadUrl: release.downloadUrl,
-                });
+                
+                alert("⏳ PASO 2: Descargando y extrayendo ZIP...");
+                let extractedPath;
+                try {
+                  extractedPath = await downloadAndExtractPlugin({
+                    pluginId: plugin.id, downloadUrl: release.downloadUrl,
+                  });
+                } catch(e) {
+                  alert("❌ FALLO EN PASO 2 (Descarga/Extracción): " + e.message);
+                  throw e;
+                }
+
+                alert("⏳ PASO 3: Guardando en base de datos local...");
                 try {
                   const now = new Date().toISOString();
                   await upsertRegistryEntry({
@@ -243,13 +255,28 @@ jobs:
                     installationMethod: 'store', enabled: false,
                     installedAt: now, lastUpdatedAt: now,
                   });
+                } catch(e) {
+                  alert("❌ FALLO EN PASO 3 (Base de datos): " + e.message);
+                  throw e;
+                }
+
+                alert("⏳ PASO 4: Compilando código (esbuild-wasm)...");
+                try {
                   await loadPluginFromPath(extractedPath);
-                  await enablePlugin(plugin.id);
-                } catch (error) { throw error; } 
-                finally { await cleanupDownload(plugin.id); }
+                } catch(e) {
+                  alert("❌ FALLO EN PASO 4 (Compilador): " + e.message);
+                  throw e;
+                }
+
+                alert("⏳ PASO 5: Activando plugin...");
+                await enablePlugin(plugin.id);
+                
+                alert("✅ ¡INSTALACIÓN COMPLETADA!");
+                await cleanupDownload(plugin.id);
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
+                alert("❌ ERROR FATAL CAPTURADO: " + error.message);
                 const message = resolveErrorMessage(error);
                 toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
               },
@@ -257,6 +284,7 @@ jobs:
           };
           EOF
           fi
+
 
       - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
         run: |
