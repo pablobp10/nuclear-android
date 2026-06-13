@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Whitelist de capacidades de Tauri, Hackeo de "Set_Decorations" y PERFORACIÓN DEL FS SCOPE
+          // 2. Whitelist de capacidades de Tauri y SUPER CAPACIDAD ANDROID
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -66,36 +66,48 @@ jobs:
               try {
                 const data = JSON.parse(fs.readFileSync(fPath, "utf8"));
                 if (data.permissions) {
-                  // Filtramos los prohibidos originales
                   data.permissions = data.permissions.filter(p => {
                     const pName = typeof p === "string" ? p : p.identifier;
                     return pName && permitidos.some(prefix => pName.startsWith(prefix));
                   });
-                  
-                  // Hackeo de ventana
-                  data.permissions.push("core:window:allow-set-decorations");
-                  data.permissions.push("core:window:allow-set-size");
-                  
-                  // SUPER PARCHE: Perforación del FS Scope (SINTAXIS TAURI V2 CORRECTA)
-                  const fsHacks = [
-                    "fs:allow-read",
-                    "fs:allow-exists",
-                    "fs:allow-stat",
-                    "fs:allow-read-text-file",
-                    "fs:allow-read-dir",
-                    "fs:allow-write"
-                  ];
-                  fsHacks.forEach(id => {
-                    data.permissions.push({
-                      identifier: id,
-                      allow: ["**", "/storage/**", "/storage/emulated/0/Download/**", "$DOWNLOAD/**"]
-                    });
-                  });
-                  
                   fs.writeFileSync(fPath, JSON.stringify(data, null, 2));
                 }
               } catch(e) {}
             }
+          }
+
+          // Añadir Capacidad Suprema (Cadenas de texto simples para evitar errores de sintaxis)
+          const almightyCap = {
+            identifier: "android-almighty",
+            windows: ["*"],
+            permissions: [
+              "core:window:allow-set-decorations",
+              "core:window:allow-set-size",
+              "core:window:allow-maximize",
+              "core:window:allow-minimize",
+              "core:window:allow-close",
+              "core:window:allow-hide",
+              "core:window:allow-show",
+              "fs:allow-read",
+              "fs:allow-write",
+              "fs:allow-exists",
+              "fs:allow-stat",
+              "fs:allow-read-dir"
+            ]
+          };
+          fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
+
+          // 2.B INYECTAR FS SCOPE GLOBAL EN TAURI.CONF.JSON (Rompe el Firewall)
+          const confPath = "./packages/player/src-tauri/tauri.conf.json";
+          if (fs.existsSync(confPath)) {
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"));
+            if (!conf.plugins) conf.plugins = {};
+            if (!conf.plugins.fs) conf.plugins.fs = {};
+            if (!conf.plugins.fs.scope) conf.plugins.fs.scope = [];
+            conf.plugins.fs.scope.push("/storage/emulated/0/Download/**");
+            conf.plugins.fs.scope.push("/storage/emulated/0/**");
+            conf.plugins.fs.scope.push("**");
+            fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
           }
 
           // 3. INYECCIÓN NATIVA DE ANDROID (PERMISOS OS Y CLEARTEXT)
@@ -252,21 +264,10 @@ jobs:
 
             return useMutation({
               mutationFn: async ({ plugin }: InstallPluginParams) => {
-                alert("⏳ PASO 1: Conectando a GitHub...");
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
-                
-                alert("⏳ PASO 2: Descargando y extrayendo ZIP...");
-                let extractedPath;
-                try {
-                  extractedPath = await downloadAndExtractPlugin({
-                    pluginId: plugin.id, downloadUrl: release.downloadUrl,
-                  });
-                } catch(e) {
-                  alert("❌ FALLO EN PASO 2 (Descarga/Extracción): " + e.message);
-                  throw e;
-                }
-
-                alert("⏳ PASO 3: Guardando en base de datos local...");
+                const extractedPath = await downloadAndExtractPlugin({
+                  pluginId: plugin.id, downloadUrl: release.downloadUrl,
+                });
                 try {
                   const now = new Date().toISOString();
                   await upsertRegistryEntry({
@@ -274,28 +275,14 @@ jobs:
                     installationMethod: 'store', enabled: false,
                     installedAt: now, lastUpdatedAt: now,
                   });
-                } catch(e) {
-                  alert("❌ FALLO EN PASO 3 (Base de datos): " + e.message);
-                  throw e;
-                }
-
-                alert("⏳ PASO 4: Compilando código (esbuild-wasm)...");
-                try {
                   await loadPluginFromPath(extractedPath);
-                } catch(e) {
-                  alert("❌ FALLO EN PASO 4 (Compilador): " + e.message);
-                  throw e;
-                }
-
-                alert("⏳ PASO 5: Activando plugin...");
-                await enablePlugin(plugin.id);
-                
-                alert("✅ ¡INSTALACIÓN COMPLETADA!");
-                await cleanupDownload(plugin.id);
+                  await enablePlugin(plugin.id);
+                  toast.success("¡Módulo instalado con éxito!");
+                } catch (error) { throw error; } 
+                finally { await cleanupDownload(plugin.id); }
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
-                alert("❌ ERROR FATAL CAPTURADO: " + error.message);
                 const message = resolveErrorMessage(error);
                 toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
               },
