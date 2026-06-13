@@ -76,7 +76,7 @@ jobs:
             }
           }
 
-          // Añadir Capacidad Suprema (Cadenas de texto simples para evitar errores de sintaxis)
+          // Añadir Capacidad Suprema sin romper el parseador de Rust (SIN asteriscos globales puros)
           const almightyCap = {
             identifier: "android-almighty",
             windows: ["*"],
@@ -92,23 +92,30 @@ jobs:
               "fs:allow-write",
               "fs:allow-exists",
               "fs:allow-stat",
-              "fs:allow-read-dir"
+              "fs:allow-read-dir",
+              {
+                identifier: "fs:allow-read",
+                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
+              },
+              {
+                identifier: "fs:allow-exists",
+                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
+              },
+              {
+                identifier: "fs:allow-stat",
+                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
+              },
+              {
+                identifier: "fs:allow-read-dir",
+                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
+              },
+              {
+                identifier: "fs:allow-write",
+                allow: [{ path: "/storage/emulated/0/Download/**" }, { path: "$DOWNLOAD/**" }]
+              }
             ]
           };
           fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
-
-          // 2.B INYECTAR FS SCOPE GLOBAL EN TAURI.CONF.JSON (Rompe el Firewall)
-          const confPath = "./packages/player/src-tauri/tauri.conf.json";
-          if (fs.existsSync(confPath)) {
-            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"));
-            if (!conf.plugins) conf.plugins = {};
-            if (!conf.plugins.fs) conf.plugins.fs = {};
-            if (!conf.plugins.fs.scope) conf.plugins.fs.scope = [];
-            conf.plugins.fs.scope.push("/storage/emulated/0/Download/**");
-            conf.plugins.fs.scope.push("/storage/emulated/0/**");
-            conf.plugins.fs.scope.push("**");
-            fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
-          }
 
           // 3. INYECCIÓN NATIVA DE ANDROID (PERMISOS OS Y CLEARTEXT)
           const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
