@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Whitelist de capacidades de Tauri
+          // 2. Whitelist de capacidades de Tauri y Hackeo del "Set_Decorations"
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -66,10 +66,16 @@ jobs:
               try {
                 const data = JSON.parse(fs.readFileSync(fPath, "utf8"));
                 if (data.permissions) {
+                  // Filtramos los prohibidos
                   data.permissions = data.permissions.filter(p => {
                     const pName = typeof p === "string" ? p : p.identifier;
                     return pName && permitidos.some(prefix => pName.startsWith(prefix));
                   });
+                  
+                  // INYECCIÓN DE EMERGENCIA: Forzamos la autorización silenciosa del decorador de ventana
+                  data.permissions.push("core:window:allow-set-decorations");
+                  data.permissions.push("core:window:allow-set-size");
+                  
                   fs.writeFileSync(fPath, JSON.stringify(data, null, 2));
                 }
               } catch(e) {}
