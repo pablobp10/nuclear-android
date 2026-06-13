@@ -209,7 +209,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-       - name: 🛠️ Parchear Hook de Módulos (TypeScript Sonda)
+      - name: 🛠️ Parchear Hook de Módulos (TypeScript Sonda)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -284,7 +284,6 @@ jobs:
           };
           EOF
           fi
-
 
       - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
         run: |
