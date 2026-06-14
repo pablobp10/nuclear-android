@@ -105,6 +105,10 @@ jobs:
                 allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
               },
               {
+                identifier: "fs:allow-write",
+                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
+              },
+              {
                 identifier: "fs:allow-read-dir",
                 allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
               }
@@ -120,6 +124,8 @@ jobs:
               const permisosAndroid = `
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <application`;
               manifest = manifest.replace("<application", permisosAndroid);
             }
@@ -198,7 +204,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: APUNTANDO A LA CAJA FUERTE
+          // 9. BYPASS TS: Mocks de Diálogos y Ventanas
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -232,10 +238,108 @@ jobs:
               }
             }
           });
+
+          // 10. INYECCIÓN DE JSZIP EN EL HTML
+          const htmlPath = "./packages/player/index.html";
+          if (fs.existsSync(htmlPath)) {
+            let html = fs.readFileSync(htmlPath, "utf8");
+            // Eliminar CSP estricto por si bloquea la CDN
+            html = html.replace(/<meta[^>]*Content-Security-Policy[^>]*>/gi, "");
+            const injection = `
+            <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+            <script>
+              window.onerror = function(msg) { console.error('ERROR GLOBAL: ' + msg); return false; }; 
+              window.addEventListener('unhandledrejection', function(event) { console.error('PROMESA: ' + (event.reason.message || event.reason)); });
+            </script>
+            `;
+            html = html.replace("<head>", "<head>\\n" + injection);
+            fs.writeFileSync(htmlPath, html);
+          }
           EOF
 
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
+
+      - name: 🛠️ Parchear Hook de Módulos (EL BYPASS JS DE LA STORE)
+        run: |
+          TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
+          if [ -n "$TS_FILE" ]; then
+          cat << 'EOF' > "$TS_FILE"
+          // @ts-nocheck
+          import { useMutation } from '@tanstack/react-query';
+          import { toast } from 'sonner';
+          import { useTranslation } from '@nuclearplayer/i18n';
+          import { pluginMarketplaceApi, type MarketplacePlugin } from '../apis/pluginMarketplaceApi';
+          import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
+          import { usePluginStore } from '../stores/pluginStore';
+          import { resolveErrorMessage } from '../utils/logging';
+          import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
+
+          type InstallPluginParams = { plugin: MarketplacePlugin; };
+
+          export const useInstallPlugin = () => {
+            const { t } = useTranslation('plugins');
+            const loadPluginFromPath = usePluginStore((s) => s.loadPluginFromPath);
+            const enablePlugin = usePluginStore((s) => s.enablePlugin);
+
+            return useMutation({
+              mutationFn: async ({ plugin }: InstallPluginParams) => {
+                const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
+                
+                // BYPASS FRONTEND DE DESCARGA: Evitamos a Rust completamente
+                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins/" + plugin.id;
+                
+                try {
+                  // 1. Descargamos usando JS puro (El WebView se encarga del SSL de Android)
+                  const res = await fetch(release.downloadUrl);
+                  if (!res.ok) throw new Error("HTTP error " + res.status);
+                  const arrayBuffer = await res.arrayBuffer();
+
+                  // 2. Usamos JSZip nativo para descomprimir en memoria RAM
+                  const JSZip = window.JSZip;
+                  const zip = await JSZip.loadAsync(arrayBuffer);
+
+                  // 3. Escribimos los archivos a través de Tauri FS saltándonos la descarga backend
+                  try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
+
+                  for (const [filename, fileData] of Object.entries(zip.files)) {
+                    const fullPath = safeDir + "/" + filename;
+                    if (fileData.dir) {
+                      try { await mkdir(fullPath, { recursive: true }); } catch(e) {}
+                    } else {
+                      const parentDir = fullPath.substring(0, fullPath.lastIndexOf("/"));
+                      try { await mkdir(parentDir, { recursive: true }); } catch(e) {}
+                      const content = await fileData.async("uint8array");
+                      await writeFile(fullPath, content);
+                    }
+                  }
+                } catch(e) {
+                  alert("❌ FALLO EN BYPASS DE DESCARGA:\n" + (e.message || e));
+                  throw e;
+                }
+
+                // 4. Registrar, Compilar y Activar
+                const now = new Date().toISOString();
+                await upsertRegistryEntry({
+                  id: plugin.id, version: release.version, path: safeDir,
+                  installationMethod: 'store', enabled: false,
+                  installedAt: now, lastUpdatedAt: now,
+                });
+                
+                await loadPluginFromPath(safeDir);
+                await enablePlugin(plugin.id);
+                
+                toast.success("¡" + plugin.name + " instalado correctamente!");
+                return { plugin, version: release.version };
+              },
+              onError: (error, { plugin }) => {
+                const message = resolveErrorMessage(error);
+                toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
+              },
+            });
+          };
+          EOF
+          fi
 
       - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
         run: |
