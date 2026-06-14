@@ -270,7 +270,8 @@ jobs:
                   
                   for (const url of proxies) {
                     try {
-                      res = await fetch(url); // Fetch puro y simple
+                      // AQUÍ ESTÁ LA MAGIA: Forzamos window.fetch para evitar el crash del TLS de Rust
+                      res = await window.fetch(url); 
                       if (res.ok) {
                         arrayBuffer = await res.arrayBuffer();
                         break;
