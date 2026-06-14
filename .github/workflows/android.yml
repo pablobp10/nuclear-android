@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Capacidades de Tauri apuntando a la caja fuerte dinámica de Android ($APP_DATA)
+          // 2. Capacidades de Tauri (Autorizando la ruta externa de Termux)
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -92,7 +92,26 @@ jobs:
               "fs:allow-exists",
               "fs:allow-stat",
               "fs:allow-read-dir",
-              "fs:scope-appdata-recursive"
+              {
+                identifier: "fs:allow-read",
+                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
+              },
+              {
+                identifier: "fs:allow-exists",
+                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
+              },
+              {
+                identifier: "fs:allow-stat",
+                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
+              },
+              {
+                identifier: "fs:allow-write",
+                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
+              },
+              {
+                identifier: "fs:allow-read-dir",
+                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
+              }
             ]
           };
           fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
@@ -105,6 +124,8 @@ jobs:
               const permisosAndroid = `
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <application`;
               manifest = manifest.replace("<application", permisosAndroid);
             }
@@ -173,7 +194,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: API DINÁMICA DE RUTAS
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS EXTERNAS EXPLÍCITAS
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -189,10 +210,9 @@ jobs:
               let changed = false;
 
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                // Inyectamos la API nativa de Tauri para obtener la ruta permitida por el Firewall
-                code = `import { appDataDir as __tAppData } from '@tauri-apps/api/path';\n` + code;
+                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins";
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => (await __tAppData()) + "/NuclearPlugins"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppData()) + "/NuclearExport";`);
+                `const open = async (...args: any[]) => "${safeDir}"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => "${safeDir}";`);
                 changed = true;
               }
 
@@ -213,12 +233,9 @@ jobs:
           const htmlPath = "./packages/player/index.html";
           if (fs.existsSync(htmlPath)) {
             let html = fs.readFileSync(htmlPath, "utf8");
-            // Eliminar CSP estricto para permitir el Proxy y JSZip
             html = html.replace(/<meta[^>]*Content-Security-Policy[^>]*>/gi, "");
-            const injection = `
-            <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-            `;
-            html = html.replace("<head>", "<head>\\n" + injection);
+            const injection = `<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script>window.onerror = function(msg) { console.error('ERROR GLOBAL: ' + msg); return false; }; window.addEventListener('unhandledrejection', function(event) { console.error('PROMESA: ' + (event.reason?.message || event.reason)); });</script>`;
+            html = html.replace("<head>", "<head>\n" + injection);
             fs.writeFileSync(htmlPath, html);
           }
           EOF
@@ -226,7 +243,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (BYPASS CORS Y RUTAS NATIVAS)
+      - name: 🛠️ Parchear Hook de Módulos (BYPASS DE RED + RUTA EXTERNA TERMUX)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -240,7 +257,6 @@ jobs:
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
           import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
-          import { appDataDir } from '@tauri-apps/api/path';
 
           type InstallPluginParams = { plugin: MarketplacePlugin; };
 
@@ -253,16 +269,31 @@ jobs:
               mutationFn: async ({ plugin }: InstallPluginParams) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 
-                // 1. OBTENER RUTA NATIVA AUTORIZADA POR TAURI
-                const baseDir = await appDataDir();
-                const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
+                // 1. RUTA EXACTA DEL USUARIO (Accesible y unificada con ADB/Termux)
+                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  // 2. TÚNEL CORS PARA BURLAR EL FIREWALL WEB
-                  const corsUrl = "https://corsproxy.io/?" + encodeURIComponent(release.downloadUrl);
-                  const res = await fetch(corsUrl);
-                  if (!res.ok) throw new Error("HTTP error " + res.status);
-                  const arrayBuffer = await res.arrayBuffer();
+                  // 2. ENJAMBRE DE PROXIES
+                  const proxies = [
+                    "https://mirror.ghproxy.com/" + release.downloadUrl,
+                    "https://ghproxy.net/" + release.downloadUrl,
+                    "https://corsproxy.io/?" + encodeURIComponent(release.downloadUrl)
+                  ];
+                  
+                  let res;
+                  let arrayBuffer;
+                  
+                  for (const url of proxies) {
+                    try {
+                      res = await fetch(url);
+                      if (res.ok) {
+                        arrayBuffer = await res.arrayBuffer();
+                        break;
+                      }
+                    } catch(e) { console.warn("Proxy falló: ", url); }
+                  }
+                  
+                  if (!arrayBuffer) throw new Error("Error 403: Todos los proxies rechazaron la conexión.");
 
                   // 3. DESCOMPRIMIR EN MEMORIA
                   const JSZip = window.JSZip;
@@ -283,11 +314,11 @@ jobs:
                     }
                   }
                 } catch(e) {
-                  alert("❌ FALLO EN LA DESCARGA NATIVA:\n" + (e.message || e));
+                  console.error("FALLO EN LA DESCARGA:", e);
                   throw e;
                 }
 
-                // 5. REGISTRAR, COMPILAR Y ACTIVAR
+                // 5. REGISTRAR Y ACTIVAR
                 const now = new Date().toISOString();
                 await upsertRegistryEntry({
                   id: plugin.id, version: release.version, path: safeDir,
@@ -302,7 +333,6 @@ jobs:
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
-                alert("❌ ERROR CAPTURADO:\n" + (error.message || error));
                 const message = resolveErrorMessage(error);
                 toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
               },
