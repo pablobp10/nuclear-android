@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS INTERNAS EXPLÍCITAS (AppData)
+          // 9. SUPER PARCHE DE FRONTEND: REDIRECCIÓN DE RED Y RUTAS (Bypass de pánico TLS)
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,16 +190,43 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
+              // Bypass de selección manual de archivos
               if (code.includes("@tauri-apps/plugin-dialog")) {
                 code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\n` + code;
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
+                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
                 `const open = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearPlugins/Manual"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
                 changed = true;
               }
 
+              // Mockeo de las funciones de redimensión de ventana (Incompatibles con Android)
               if (code.includes("@tauri-apps/api/window")) {
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
+                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
                 `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
+                changed = true;
+              }
+
+              // ANULACIÓN TOTAL DEL PLUGIN HTTP DE TAURI (Para evitar el pánico de Rust TLS)
+              if (code.includes("@tauri-apps/plugin-http")) {
+                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-http['"];?/g, 
+                `const fetch = async (url, options) => {
+                    let finalUrl = typeof url === 'string' ? url : (url?.url || url);
+                    try { 
+                        const res = await window.fetch(finalUrl, options);
+                        return res;
+                    } catch(e) {
+                        const proxies = [
+                            "https://corsproxy.io/?" + encodeURIComponent(finalUrl),
+                            "https://api.allorigins.win/raw?url=" + encodeURIComponent(finalUrl)
+                        ];
+                        for (const proxy of proxies) {
+                            try {
+                                const pres = await window.fetch(proxy, options);
+                                if (pres.ok) return pres;
+                            } catch(err) {}
+                        }
+                        throw e;
+                    }
+                };`);
                 changed = true;
               }
 
@@ -270,7 +297,7 @@ jobs:
                   
                   for (const url of proxies) {
                     try {
-                      // AQUÍ ESTÁ LA MAGIA: Forzamos window.fetch para evitar el crash del TLS de Rust
+                      // AQUÍ ESTÁ LA MAGIA: Forzamos window.fetch nativo
                       res = await window.fetch(url); 
                       if (res.ok) {
                         arrayBuffer = await res.arrayBuffer();
