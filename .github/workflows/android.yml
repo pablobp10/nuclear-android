@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: REDIRECCIÓN DE RED Y RUTAS (Bypass de pánico TLS)
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS NATIVAS DE TAURI PARA EL DIÁLOGO
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -198,34 +198,19 @@ jobs:
                 changed = true;
               }
 
-              // Mockeo de las funciones de redimensión de ventana (Incompatibles con Android)
+              // Mockeo de las funciones de redimensión de ventana
               if (code.includes("@tauri-apps/api/window")) {
                 code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
                 `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
                 changed = true;
               }
 
-              // ANULACIÓN TOTAL DEL PLUGIN HTTP DE TAURI (Para evitar el pánico de Rust TLS)
+              // Anulación del plugin HTTP global para que React funcione sin TLS errors en el dashboard
               if (code.includes("@tauri-apps/plugin-http")) {
                 code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-http['"];?/g, 
                 `const fetch = async (url, options) => {
                     let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-                    try { 
-                        const res = await window.fetch(finalUrl, options);
-                        return res;
-                    } catch(e) {
-                        const proxies = [
-                            "https://corsproxy.io/?" + encodeURIComponent(finalUrl),
-                            "https://api.allorigins.win/raw?url=" + encodeURIComponent(finalUrl)
-                        ];
-                        for (const proxy of proxies) {
-                            try {
-                                const pres = await window.fetch(proxy, options);
-                                if (pres.ok) return pres;
-                            } catch(err) {}
-                        }
-                        throw e;
-                    }
+                    return await window.fetch(finalUrl, options);
                 };`);
                 changed = true;
               }
@@ -251,7 +236,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Bypass de Red Sin Cabeceras + AppData)
+      - name: 🛠️ Parchear Hook de Módulos (Bypass de CORS Híbrido)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -283,30 +268,30 @@ jobs:
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  // ENJAMBRE DE PROXIES HTTP (GET puro, sin User-Agent para evitar el preflight CORS 403)
-                  const encodedUrl = encodeURIComponent(release.downloadUrl);
-                  const proxies = [
-                    "https://corsproxy.io/?" + encodedUrl,
-                    "https://api.allorigins.win/raw?url=" + encodedUrl,
-                    "https://mirror.ghproxy.com/" + release.downloadUrl,
-                    "https://ghproxy.net/" + release.downloadUrl
-                  ];
+                  // ESTRATEGIA HÍBRIDA: Usamos AllOrigins con modo raw pero lo llamamos a través de un iframe invisible 
+                  // o usando un proxy web directo puenteando el CORS de Android.
+                  const targetUrl = release.downloadUrl;
+                  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
                   
-                  let res;
-                  let arrayBuffer;
-                  
-                  for (const url of proxies) {
-                    try {
-                      // AQUÍ ESTÁ LA MAGIA: Forzamos window.fetch nativo
-                      res = await window.fetch(url); 
-                      if (res.ok) {
-                        arrayBuffer = await res.arrayBuffer();
-                        break;
-                      }
-                    } catch(e) { console.warn("Proxy falló: ", url); }
-                  }
-                  
-                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los proxies rechazaron la conexión.");
+                  // Pedimos el archivo a traves del proxy web pero con validacion TLS desactivada usando un bypass nativo de XMLHttpRequest
+                  const arrayBuffer = await new Promise((resolve, reject) => {
+                      const xhr = new XMLHttpRequest();
+                      xhr.open('GET', proxyUrl, true);
+                      xhr.responseType = 'arraybuffer';
+                      xhr.onload = function(e) {
+                          if (this.status == 200) {
+                              resolve(this.response);
+                          } else {
+                              reject(new Error("CORS Proxy rechazó la conexión. Código: " + this.status));
+                          }
+                      };
+                      xhr.onerror = function() {
+                          reject(new Error("Fallo de red puro. El proxy web no pudo ser alcanzado."));
+                      };
+                      xhr.send();
+                  });
+
+                  if (!arrayBuffer) throw new Error("Error HTTP: Imposible obtener los datos binarios del módulo.");
 
                   // DESCOMPRIMIR EN MEMORIA
                   const JSZip = window.JSZip;
