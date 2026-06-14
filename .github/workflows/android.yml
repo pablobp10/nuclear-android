@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Capacidades de Tauri apuntando a la caja fuerte de Android
+          // 2. Capacidades de Tauri apuntando a la caja fuerte dinámica de Android ($APP_DATA)
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -92,26 +92,7 @@ jobs:
               "fs:allow-exists",
               "fs:allow-stat",
               "fs:allow-read-dir",
-              {
-                identifier: "fs:allow-read",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-exists",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-stat",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-write",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-read-dir",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              }
+              "fs:scope-appdata-recursive"
             ]
           };
           fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
@@ -124,8 +105,6 @@ jobs:
               const permisosAndroid = `
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <application`;
               manifest = manifest.replace("<application", permisosAndroid);
             }
@@ -148,17 +127,7 @@ jobs:
           }
 
           // 5. RUST: Módulo Fantasma Dinámico
-          const dummyMod = `
-          pub mod dummy_plugin {
-              pub struct Builder;
-              impl Builder {
-                  pub fn default() -> Self { Self }
-                  pub fn new() -> Self { Self }
-                  pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() }
-              }
-              pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() }
-          }
-          `;
+          const dummyMod = `pub mod dummy_plugin { pub struct Builder; impl Builder { pub fn default() -> Self { Self } pub fn new() -> Self { Self } pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } } pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } }`;
           const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
           rsDirs.forEach(f => {
             if (fs.existsSync(f)) {
@@ -204,7 +173,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. BYPASS TS: Mocks de Diálogos y Ventanas
+          // 9. SUPER PARCHE DE FRONTEND: API DINÁMICA DE RUTAS
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -220,9 +189,10 @@ jobs:
               let changed = false;
 
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins";
+                // Inyectamos la API nativa de Tauri para obtener la ruta permitida por el Firewall
+                code = `import { appDataDir as __tAppData } from '@tauri-apps/api/path';\n` + code;
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => "${safeDir}"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => "${safeDir}";`);
+                `const open = async (...args: any[]) => (await __tAppData()) + "/NuclearPlugins"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppData()) + "/NuclearExport";`);
                 changed = true;
               }
 
@@ -243,14 +213,10 @@ jobs:
           const htmlPath = "./packages/player/index.html";
           if (fs.existsSync(htmlPath)) {
             let html = fs.readFileSync(htmlPath, "utf8");
-            // Eliminar CSP estricto por si bloquea la CDN
+            // Eliminar CSP estricto para permitir el Proxy y JSZip
             html = html.replace(/<meta[^>]*Content-Security-Policy[^>]*>/gi, "");
             const injection = `
             <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-            <script>
-              window.onerror = function(msg) { console.error('ERROR GLOBAL: ' + msg); return false; }; 
-              window.addEventListener('unhandledrejection', function(event) { console.error('PROMESA: ' + (event.reason.message || event.reason)); });
-            </script>
             `;
             html = html.replace("<head>", "<head>\\n" + injection);
             fs.writeFileSync(htmlPath, html);
@@ -260,7 +226,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (EL BYPASS JS DE LA STORE)
+      - name: 🛠️ Parchear Hook de Módulos (BYPASS CORS Y RUTAS NATIVAS)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -274,6 +240,7 @@ jobs:
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
           import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
+          import { appDataDir } from '@tauri-apps/api/path';
 
           type InstallPluginParams = { plugin: MarketplacePlugin; };
 
@@ -286,20 +253,22 @@ jobs:
               mutationFn: async ({ plugin }: InstallPluginParams) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 
-                // BYPASS FRONTEND DE DESCARGA: Evitamos a Rust completamente
-                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins/" + plugin.id;
+                // 1. OBTENER RUTA NATIVA AUTORIZADA POR TAURI
+                const baseDir = await appDataDir();
+                const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  // 1. Descargamos usando JS puro (El WebView se encarga del SSL de Android)
-                  const res = await fetch(release.downloadUrl);
+                  // 2. TÚNEL CORS PARA BURLAR EL FIREWALL WEB
+                  const corsUrl = "https://corsproxy.io/?" + encodeURIComponent(release.downloadUrl);
+                  const res = await fetch(corsUrl);
                   if (!res.ok) throw new Error("HTTP error " + res.status);
                   const arrayBuffer = await res.arrayBuffer();
 
-                  // 2. Usamos JSZip nativo para descomprimir en memoria RAM
+                  // 3. DESCOMPRIMIR EN MEMORIA
                   const JSZip = window.JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
 
-                  // 3. Escribimos los archivos a través de Tauri FS saltándonos la descarga backend
+                  // 4. ESCRITURA FORZADA A TRAVÉS DEL PUENTE NATIVO
                   try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
 
                   for (const [filename, fileData] of Object.entries(zip.files)) {
@@ -314,11 +283,11 @@ jobs:
                     }
                   }
                 } catch(e) {
-                  alert("❌ FALLO EN BYPASS DE DESCARGA:\n" + (e.message || e));
+                  alert("❌ FALLO EN LA DESCARGA NATIVA:\n" + (e.message || e));
                   throw e;
                 }
 
-                // 4. Registrar, Compilar y Activar
+                // 5. REGISTRAR, COMPILAR Y ACTIVAR
                 const now = new Date().toISOString();
                 await upsertRegistryEntry({
                   id: plugin.id, version: release.version, path: safeDir,
@@ -333,6 +302,7 @@ jobs:
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
+                alert("❌ ERROR CAPTURADO:\n" + (error.message || error));
                 const message = resolveErrorMessage(error);
                 toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
               },
