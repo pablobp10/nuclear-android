@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Capacidades de Tauri (Autorizando la ruta externa de Termux)
+          // 2. Capacidades de Tauri (Alineadas con la ruta nativa Download)
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -92,26 +92,8 @@ jobs:
               "fs:allow-exists",
               "fs:allow-stat",
               "fs:allow-read-dir",
-              {
-                identifier: "fs:allow-read",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-exists",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-stat",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-write",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              },
-              {
-                identifier: "fs:allow-read-dir",
-                allow: [{ path: "/storage/emulated/0/Android/data/com.nuclearplayer/**" }]
-              }
+              "fs:scope-download-recursive",
+              "fs:scope-appdata-recursive"
             ]
           };
           fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
@@ -194,7 +176,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS EXTERNAS EXPLÍCITAS
+          // 9. SUPER PARCHE DE FRONTEND: API NATIVA DE TAURI PARA RUTAS
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -210,9 +192,9 @@ jobs:
               let changed = false;
 
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins";
+                code = `import { downloadDir as __tDownloadDir } from '@tauri-apps/api/path';\n` + code;
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => "${safeDir}"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => "${safeDir}";`);
+                `const open = async (...args: any[]) => (await __tDownloadDir()) + "/NuclearPlugins"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tDownloadDir()) + "/NuclearExport";`);
                 changed = true;
               }
 
@@ -243,7 +225,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (BYPASS DE RED + RUTA EXTERNA TERMUX)
+      - name: 🛠️ Parchear Hook de Módulos (BYPASS CORS Y RUTA NATIVA DOWNLOAD)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -257,6 +239,7 @@ jobs:
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
           import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
+          import { downloadDir } from '@tauri-apps/api/path';
 
           type InstallPluginParams = { plugin: MarketplacePlugin; };
 
@@ -269,15 +252,18 @@ jobs:
               mutationFn: async ({ plugin }: InstallPluginParams) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 
-                // 1. RUTA EXACTA DEL USUARIO (Accesible y unificada con ADB/Termux)
-                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins/" + plugin.id;
+                // 1. RUTA DINÁMICA DE DESCARGAS (Garantizada por el FS Scope de Tauri)
+                const baseDir = await downloadDir();
+                const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  // 2. ENJAMBRE DE PROXIES
+                  // 2. ENJAMBRE DE PROXIES CON CAMUFLAJE HTTP (Anti-403)
+                  const encodedUrl = encodeURIComponent(release.downloadUrl);
                   const proxies = [
+                    "https://api.allorigins.win/raw?url=" + encodedUrl,
+                    "https://api.codetabs.com/v1/proxy?quest=" + encodedUrl,
                     "https://mirror.ghproxy.com/" + release.downloadUrl,
-                    "https://ghproxy.net/" + release.downloadUrl,
-                    "https://corsproxy.io/?" + encodeURIComponent(release.downloadUrl)
+                    "https://ghproxy.net/" + release.downloadUrl
                   ];
                   
                   let res;
@@ -285,7 +271,9 @@ jobs:
                   
                   for (const url of proxies) {
                     try {
-                      res = await fetch(url);
+                      res = await fetch(url, {
+                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+                      });
                       if (res.ok) {
                         arrayBuffer = await res.arrayBuffer();
                         break;
