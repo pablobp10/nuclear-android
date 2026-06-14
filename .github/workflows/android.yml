@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta externa (Termux Path)
+          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna AppData
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -76,7 +76,6 @@ jobs:
             }
           }
 
-          const externalPath = "/storage/emulated/0/Android/data/com.nuclearplayer/**";
           const almightyCap = {
             identifier: "android-almighty",
             windows: ["*"],
@@ -95,13 +94,7 @@ jobs:
               "fs:allow-read-dir",
               "fs:allow-mkdir",
               "fs:allow-remove",
-              { identifier: "fs:allow-read", allow: [{ path: externalPath }] },
-              { identifier: "fs:allow-exists", allow: [{ path: externalPath }] },
-              { identifier: "fs:allow-stat", allow: [{ path: externalPath }] },
-              { identifier: "fs:allow-write", allow: [{ path: externalPath }] },
-              { identifier: "fs:allow-read-dir", allow: [{ path: externalPath }] },
-              { identifier: "fs:allow-mkdir", allow: [{ path: externalPath }] },
-              { identifier: "fs:allow-remove", allow: [{ path: externalPath }] }
+              "fs:scope-appdata-recursive"
             ]
           };
           fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
@@ -182,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS EXTERNAS EXPLÍCITAS (Termux)
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS INTERNAS EXPLÍCITAS (AppData)
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -192,16 +185,15 @@ jobs:
             });
           }
 
-          const targetSafeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins";
-
           walkSync("./packages/player/src", function(filePath) {
             if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) {
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
               if (code.includes("@tauri-apps/plugin-dialog")) {
+                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\n` + code;
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => "${targetSafeDir}"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => "${targetSafeDir}";`);
+                `const open = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearPlugins/Manual"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
                 changed = true;
               }
 
@@ -232,7 +224,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Bypass de Red + Ruta Externa Termux)
+      - name: 🛠️ Parchear Hook de Módulos (Bypass de Red Sin Cabeceras + AppData)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -246,6 +238,7 @@ jobs:
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
           import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
+          import { appDataDir } from '@tauri-apps/api/path';
 
           type InstallPluginParams = { plugin: MarketplacePlugin; };
 
@@ -258,17 +251,18 @@ jobs:
               mutationFn: async ({ plugin }: InstallPluginParams) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 
-                // RUTA ABSOLUTA EXTERNA PARA ADB/TERMUX (Autorizada en el Scope de Tauri)
-                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins/" + plugin.id;
+                // RUTA INTERNA (100% Segura y autorizada por Tauri)
+                const baseDir = await appDataDir();
+                const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  // ENJAMBRE DE PROXIES HTTP (Tolerancia a fallos para el error 403)
+                  // ENJAMBRE DE PROXIES HTTP (GET puro, sin User-Agent para evitar el preflight CORS 403)
                   const encodedUrl = encodeURIComponent(release.downloadUrl);
                   const proxies = [
-                    "https://mirror.ghproxy.com/" + release.downloadUrl,
-                    "https://ghproxy.net/" + release.downloadUrl,
+                    "https://corsproxy.io/?" + encodedUrl,
                     "https://api.allorigins.win/raw?url=" + encodedUrl,
-                    "https://api.codetabs.com/v1/proxy?quest=" + encodedUrl
+                    "https://mirror.ghproxy.com/" + release.downloadUrl,
+                    "https://ghproxy.net/" + release.downloadUrl
                   ];
                   
                   let res;
@@ -276,9 +270,7 @@ jobs:
                   
                   for (const url of proxies) {
                     try {
-                      res = await fetch(url, {
-                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-                      });
+                      res = await fetch(url); // Fetch puro y simple
                       if (res.ok) {
                         arrayBuffer = await res.arrayBuffer();
                         break;
@@ -286,13 +278,13 @@ jobs:
                     } catch(e) { console.warn("Proxy falló: ", url); }
                   }
                   
-                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los servidores espejo rechazaron la conexión.");
+                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los proxies rechazaron la conexión.");
 
                   // DESCOMPRIMIR EN MEMORIA
                   const JSZip = window.JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
 
-                  // ESCRITURA NATIVA DIRECTA (Con autorización de mkdir)
+                  // ESCRITURA NATIVA DIRECTA EN APPDATA
                   try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
 
                   for (const [filename, fileData] of Object.entries(zip.files)) {
