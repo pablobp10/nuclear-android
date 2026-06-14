@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. Configurar capacidades de almacenamiento interno relativo de Tauri v2
+          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta externa (Termux Path)
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -76,6 +76,7 @@ jobs:
             }
           }
 
+          const externalPath = "/storage/emulated/0/Android/data/com.nuclearplayer/**";
           const almightyCap = {
             identifier: "android-almighty",
             windows: ["*"],
@@ -92,17 +93,28 @@ jobs:
               "fs:allow-exists",
               "fs:allow-stat",
               "fs:allow-read-dir",
-              "fs:scope-appdata-recursive"
+              "fs:allow-mkdir",
+              "fs:allow-remove",
+              { identifier: "fs:allow-read", allow: [{ path: externalPath }] },
+              { identifier: "fs:allow-exists", allow: [{ path: externalPath }] },
+              { identifier: "fs:allow-stat", allow: [{ path: externalPath }] },
+              { identifier: "fs:allow-write", allow: [{ path: externalPath }] },
+              { identifier: "fs:allow-read-dir", allow: [{ path: externalPath }] },
+              { identifier: "fs:allow-mkdir", allow: [{ path: externalPath }] },
+              { identifier: "fs:allow-remove", allow: [{ path: externalPath }] }
             ]
           };
           fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
 
-          // 3. Establecer directivas de red en AndroidManifest
+          // 3. AndroidManifest: Internet y Cleartext
           const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
           if (fs.existsSync(manifestPath)) {
             let manifest = fs.readFileSync(manifestPath, "utf8");
             if (!manifest.includes("android.permission.INTERNET")) {
-              const permisosAndroid = `<uses-permission android:name="android.permission.INTERNET" />\n<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n<application`;
+              const permisosAndroid = `
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <application`;
               manifest = manifest.replace("<application", permisosAndroid);
             }
             if (!manifest.includes('android:usesCleartextTraffic="true"')) {
@@ -111,7 +123,7 @@ jobs:
             fs.writeFileSync(manifestPath, manifest);
           }
 
-          // 4. Depurar dependencias de Cargo
+          // 4. Purgar dependencias de Cargo.toml
           const cargoPath = "./packages/player/src-tauri/Cargo.toml";
           if (fs.existsSync(cargoPath)) {
             let cargoLines = fs.readFileSync(cargoPath, "utf8").split("\n");
@@ -123,7 +135,7 @@ jobs:
             fs.writeFileSync(cargoPath, cargoLines.join("\n"));
           }
 
-          // 5. Módulo fantasma de Rust para prevenir fallos estáticos de enlazado
+          // 5. RUST: Módulo Fantasma Dinámico
           const dummyMod = `pub mod dummy_plugin { pub struct Builder; impl Builder { pub fn default() -> Self { Self } pub fn new() -> Self { Self } pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } } pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } }`;
           const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
           rsDirs.forEach(f => {
@@ -139,7 +151,7 @@ jobs:
             }
           });
 
-          // 6. Configuración binaria para yt-dlp
+          // 6. RUST YT-DLP
           const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
           if (fs.existsSync(ytdlpPath)) {
             let code = fs.readFileSync(ytdlpPath, "utf8");
@@ -148,7 +160,7 @@ jobs:
             fs.writeFileSync(ytdlpPath, code);
           }
 
-          // 7. Configuración de esbuild para WebAssembly en móvil
+          // 7. PARCHE PARA ESBUILD EN ANDROID
           const compilerPath = "./packages/player/src/services/plugins/pluginCompiler.ts";
           if (fs.existsSync(compilerPath)) {
             let code = fs.readFileSync(compilerPath, "utf8");
@@ -159,16 +171,18 @@ jobs:
             fs.writeFileSync(compilerPath, code);
           }
 
-          // 8. Normalización del sistema de archivos relativo en servicios de plugins
+          // 8. PARCHE PARA ERROR DE RUTAS EN TAURI MOBILE
           const dirPath = "./packages/player/src/services/plugins/pluginDir.ts";
           if (fs.existsSync(dirPath)) {
             let code = fs.readFileSync(dirPath, "utf8");
-            code = code.replace(/await remove\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g, "await remove(destination, { recursive: true });");
-            code = code.replace(/await mkdir\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g, "await mkdir(destination, { recursive: true });");
+            code = code.replace(/await remove\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g,
+                                "await remove(destination, { recursive: true });");
+            code = code.replace(/await mkdir\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g,
+                                "await mkdir(destination, { recursive: true });");
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. Parcheo del diálogo nativo para usar exclusivamente rutas relativas autorizadas
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS EXTERNAS EXPLÍCITAS (Termux)
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -178,6 +192,8 @@ jobs:
             });
           }
 
+          const targetSafeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins";
+
           walkSync("./packages/player/src", function(filePath) {
             if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) {
               let code = fs.readFileSync(filePath, "utf8");
@@ -185,7 +201,7 @@ jobs:
 
               if (code.includes("@tauri-apps/plugin-dialog")) {
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => "NuclearPlugins/ManualPlugin"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => "NuclearExport";`);
+                `const open = async (...args: any[]) => "${targetSafeDir}"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => "${targetSafeDir}";`);
                 changed = true;
               }
 
@@ -201,21 +217,22 @@ jobs:
               }
             }
           });
-          EOF
 
-          // 10. Desactivar políticas restrictivas CSP en index.html
+          // 10. INYECCIÓN DE JSZIP Y ELIMINACIÓN DE CSP
           const htmlPath = "./packages/player/index.html";
           if (fs.existsSync(htmlPath)) {
             let html = fs.readFileSync(htmlPath, "utf8");
             html = html.replace(/<meta[^>]*Content-Security-Policy[^>]*>/gi, "");
+            const injection = `<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script>window.onerror = function(msg) { console.error('ERROR GLOBAL: ' + msg); return false; }; window.addEventListener('unhandledrejection', function(event) { console.error('PROMESA: ' + (event.reason?.message || event.reason)); });</script>`;
+            html = html.replace("<head>", "<head>\n" + injection);
             fs.writeFileSync(htmlPath, html);
           }
           EOF
 
-      - name: 🛠_ Ejecutar Parches de Sistema
+      - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠_ Inyección del Motor de Instalación de Texto Plano en Sandboxing Seguro
+      - name: 🛠️ Parchear Hook de Módulos (Bypass de Red + Ruta Externa Termux)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -228,8 +245,7 @@ jobs:
           import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
-          import { mkdir, writeTextFile } from '@tauri-apps/plugin-fs';
-          import { BaseDirectory } from '@tauri-apps/plugin-fs';
+          import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
 
           type InstallPluginParams = { plugin: MarketplacePlugin; };
 
@@ -242,63 +258,71 @@ jobs:
               mutationFn: async ({ plugin }: InstallPluginParams) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 
-                // Generamos una ruta puramente relativa dentro de AppData, eludiendo el validador de Rust
-                const relativePluginDir = "NuclearPlugins/" + plugin.id;
+                // RUTA ABSOLUTA EXTERNA PARA ADB/TERMUX (Autorizada en el Scope de Tauri)
+                const safeDir = "/storage/emulated/0/Android/data/com.nuclearplayer/files/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  // Reconstruimos las rutas de descarga hacia las fuentes de texto plano de GitHub para evadir el error 403
-                  // Pasamos la solicitud a través del proxy de texto plano AllOrigins
-                  const rawBaseUrl = `https://raw.githubusercontent.com/${plugin.repo}/${release.version || 'master'}`;
+                  // ENJAMBRE DE PROXIES HTTP (Tolerancia a fallos para el error 403)
+                  const encodedUrl = encodeURIComponent(release.downloadUrl);
+                  const proxies = [
+                    "https://mirror.ghproxy.com/" + release.downloadUrl,
+                    "https://ghproxy.net/" + release.downloadUrl,
+                    "https://api.allorigins.win/raw?url=" + encodedUrl,
+                    "https://api.codetabs.com/v1/proxy?quest=" + encodedUrl
+                  ];
                   
-                  const targetFiles = ['package.json', 'index.js'];
+                  let res;
+                  let arrayBuffer;
                   
-                  // Inicializar el directorio del plugin dentro del entorno seguro de la aplicación
-                  try {
-                    await mkdir(relativePluginDir, { baseDir: BaseDirectory.AppData, recursive: true });
-                  } catch(e) {}
-
-                  for (const targetFile of targetFiles) {
-                    const rawFileUrl = `${rawBaseUrl}/${targetFile}`;
-                    const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(rawFileUrl);
-                    
-                    const response = await fetch(proxyUrl, {
-                      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
-                    });
-                    
-                    if (!response.ok) {
-                      throw new Error(`No se pudo adquirir el archivo del plugin: ${targetFile}`);
-                    }
-                    
-                    const fileContent = await response.text();
-                    
-                    // Escribimos los archivos usando referencias relativas puras de Tauri v2
-                    await writeTextFile(
-                      `${relativePluginDir}/${targetFile}`,
-                      fileContent,
-                      { baseDir: BaseDirectory.AppData }
-                    );
+                  for (const url of proxies) {
+                    try {
+                      res = await fetch(url, {
+                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+                      });
+                      if (res.ok) {
+                        arrayBuffer = await res.arrayBuffer();
+                        break;
+                      }
+                    } catch(e) { console.warn("Proxy falló: ", url); }
                   }
+                  
+                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los servidores espejo rechazaron la conexión.");
 
+                  // DESCOMPRIMIR EN MEMORIA
+                  const JSZip = window.JSZip;
+                  const zip = await JSZip.loadAsync(arrayBuffer);
+
+                  // ESCRITURA NATIVA DIRECTA (Con autorización de mkdir)
+                  try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
+
+                  for (const [filename, fileData] of Object.entries(zip.files)) {
+                    const fullPath = safeDir + "/" + filename;
+                    if (fileData.dir) {
+                      try { await mkdir(fullPath, { recursive: true }); } catch(e) {}
+                    } else {
+                      const parentDir = fullPath.substring(0, fullPath.lastIndexOf("/"));
+                      try { await mkdir(parentDir, { recursive: true }); } catch(e) {}
+                      const content = await fileData.async("uint8array");
+                      await writeFile(fullPath, content);
+                    }
+                  }
                 } catch(e) {
-                  console.error("Fallo crítico en el pipeline de sincronización interna del plugin:", e);
+                  console.error("Fallo durante el puenteo de instalación:", e);
                   throw e;
                 }
 
+                // REGISTRAR Y ACTIVAR
                 const now = new Date().toISOString();
                 await upsertRegistryEntry({
-                  id: plugin.id,
-                  version: release.version,
-                  path: relativePluginDir,
-                  installationMethod: 'store',
-                  enabled: false,
-                  installedAt: now,
-                  lastUpdatedAt: now,
+                  id: plugin.id, version: release.version, path: safeDir,
+                  installationMethod: 'store', enabled: false,
+                  installedAt: now, lastUpdatedAt: now,
                 });
                 
-                await loadPluginFromPath(relativePluginDir);
+                await loadPluginFromPath(safeDir);
                 await enablePlugin(plugin.id);
                 
-                toast.success("¡Plugin sincronizado y activado de forma segura!");
+                toast.success("¡" + plugin.name + " instalado correctamente!");
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
@@ -310,13 +334,13 @@ jobs:
           EOF
           fi
 
-      - name: 🛠_ Aplicar Interfaz de Android (Shadowing de android_ui)
+      - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
         run: |
           if [ -d "android_ui" ]; then
             cp -a android_ui/. ./
             echo "✅ Archivos estáticos aplicados en caliente."
           else
-            echo "❌ ERROR CRÍTICO: Carpeta android_ui no encontrada en la raíz."
+            echo "❌ ERROR CRÍTICO: Carpeta android_ui no encontrada."
             exit 1
           fi
           
