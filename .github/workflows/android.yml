@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: Imports Dinámicos (Bypass de ReferenceError)
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS LOCALES ESTÁTICAS Y BYPASS DE TLS
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,32 +190,28 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // Bypass de selección manual de archivos con Imports Dinámicos y Creación de Carpeta Automática
+              // TU INYECCIÓN LOCAL: 100% Intacta, estática y comprobada.
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args) => { 
-                    const p = await import('@tauri-apps/api/path'); 
-                    const f = await import('@tauri-apps/plugin-fs');
-                    const b = await p.appDataDir(); 
-                    const target = b + "/NuclearPlugins/Manual";
-                    try { await f.mkdir(target, { recursive: true }); } catch(e) {}
-                    return target; 
-                 };
-                 const message = async (...args) => {}; 
-                 const ask = async (...args) => true; 
-                 const confirm = async (...args) => true; 
-                 const save = async (...args) => { 
-                    const p = await import('@tauri-apps/api/path'); 
-                    const b = await p.appDataDir(); 
-                    return b + "/NuclearExport"; 
-                 };`);
+                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\n` + code;
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
+                `const open = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearPlugins/Manual"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
                 changed = true;
               }
 
               // Mockeo de las funciones de redimensión de ventana
               if (code.includes("@tauri-apps/api/window")) {
-                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
-                `const getCurrentWindow = () => ({ setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
+                `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
+                changed = true;
+              }
+
+              // NUEVA INYECCIÓN: Extirpamos el motor TLS de Rust y lo forzamos a WebView para la Tienda
+              if (code.includes("@tauri-apps/plugin-http")) {
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-http['"];?/g, 
+                `const fetch = async (url, options) => {
+                    let finalUrl = typeof url === 'string' ? url : (url?.url || url);
+                    return await window.fetch(finalUrl, options);
+                }; const getClient = async () => ({ request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }) });`);
                 changed = true;
               }
 
@@ -235,63 +231,12 @@ jobs:
             html = html.replace("<head>", "<head>\n" + injection);
             fs.writeFileSync(htmlPath, html);
           }
-          
-          // 11. ANIQUILACIÓN DEL PLUGIN HTTP RUST DESDE LA RAÍZ (node_modules)
-          // Esto fuerza a toda la aplicación a usar window.fetch, evitando el pánico de "rustls-platform-verifier"
-          const httpPluginDirs = [
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.js",
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.cjs",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.js",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.cjs"
-          ];
-
-          const mockHttpCode = `
-          export async function fetch(url, options) {
-              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-              return await window.fetch(finalUrl, options);
-          }
-          export async function getClient() {
-              return {
-                  request: fetch,
-                  get: (url, options) => fetch(url, { ...options, method: 'GET' }),
-                  post: (url, options) => fetch(url, { ...options, method: 'POST' }),
-                  drop: () => {}
-              };
-          }
-          `;
-
-          const mockHttpCodeCjs = `
-          "use strict";
-          Object.defineProperty(exports, "__esModule", { value: true });
-          exports.fetch = async function(url, options) {
-              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-              return await window.fetch(finalUrl, options);
-          };
-          exports.getClient = async function() {
-              return {
-                  request: exports.fetch,
-                  get: (url, options) => exports.fetch(url, { ...options, method: 'GET' }),
-                  post: (url, options) => exports.fetch(url, { ...options, method: 'POST' }),
-                  drop: () => {}
-              };
-          };
-          `;
-
-          httpPluginDirs.forEach(p => {
-              if (fs.existsSync(p)) {
-                  // Rompemos el symlink de pnpm antes de escribir
-                  try { fs.unlinkSync(p); } catch(e) {}
-                  fs.writeFileSync(p, p.endsWith(".cjs") ? mockHttpCodeCjs : mockHttpCode);
-              }
-          });
           EOF
 
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Bypass de CORS Híbrido XMLHttpRequest)
+      - name: 🛠️ Parchear Hook de Módulos (Bypass de Red Sin Cabeceras + AppData)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -322,27 +267,29 @@ jobs:
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  const targetUrl = release.downloadUrl;
-                  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+                  // Matriz de Proxies para evadir la Política de CORS en el ZIP
+                  const encodedUrl = encodeURIComponent(release.downloadUrl);
+                  const proxies = [
+                    "https://corsproxy.io/?" + encodedUrl,
+                    "https://api.codetabs.com/v1/proxy?quest=" + encodedUrl,
+                    "https://mirror.ghproxy.com/" + release.downloadUrl,
+                    "https://ghproxy.net/" + release.downloadUrl
+                  ];
                   
-                  const arrayBuffer = await new Promise((resolve, reject) => {
-                      const xhr = new XMLHttpRequest();
-                      xhr.open('GET', proxyUrl, true);
-                      xhr.responseType = 'arraybuffer';
-                      xhr.onload = function(e) {
-                          if (this.status == 200) {
-                              resolve(this.response);
-                          } else {
-                              reject(new Error("Proxy CORS denegado: " + this.status));
-                          }
-                      };
-                      xhr.onerror = function() {
-                          reject(new Error("Error de red con el proxy AllOrigins"));
-                      };
-                      xhr.send();
-                  });
-
-                  if (!arrayBuffer) throw new Error("Datos binarios corruptos o nulos.");
+                  let res;
+                  let arrayBuffer;
+                  
+                  for (const url of proxies) {
+                    try {
+                      res = await window.fetch(url); 
+                      if (res.ok) {
+                        arrayBuffer = await res.arrayBuffer();
+                        break;
+                      }
+                    } catch(e) { console.warn("Proxy falló: ", url); }
+                  }
+                  
+                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los proxies web rechazaron la conexión CORS.");
 
                   const JSZip = window.JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
