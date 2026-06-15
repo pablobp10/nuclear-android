@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. CAPACIDADES DE TAURI: Autorización absoluta
+          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna AppData
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: Lectura de target autorizada por Tauri
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS ESTÁTICAS Y PUNTERO
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,16 +190,16 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // Bypass seguro para el diálogo de archivos usando Scope de Tauri
+              // Bypass inyectado exactamente con el formato de la versión estable
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                const inyeccion = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile, BaseDirectory as __tBaseDirectory } from '@tauri-apps/plugin-fs';\n`;
+                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile } from '@tauri-apps/plugin-fs';\n` + code;
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
                 `const open = async (...args: any[]) => {
+                    const b = await __tAppDataDir();
                     try { 
-                        const contenido = await __tReadTextFile("NuclearPlugins/target.txt", { baseDir: __tBaseDirectory.AppData });
-                        return contenido.trim(); 
+                        const content = await __tReadTextFile(b + "/NuclearPlugins/target.txt");
+                        return content.trim(); 
                     } catch(e) { 
-                        const b = await __tAppDataDir();
                         return b + "/NuclearPlugins/Manual"; 
                     }
                 }; 
@@ -207,7 +207,6 @@ jobs:
                 const ask = async (...args: any[]) => true; 
                 const confirm = async (...args: any[]) => true; 
                 const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
-                code = inyeccion + code;
                 changed = true;
               }
 
@@ -215,17 +214,6 @@ jobs:
               if (code.includes("@tauri-apps/api/window")) {
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
                 `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
-                changed = true;
-              }
-
-              // Anulación de la librería de Rust (HTTP) para evitar el panic de TLS y usar el motor WebView de Android.
-              if (code.includes("@tauri-apps/plugin-http")) {
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-http['"];?/g, 
-                `const fetch = async (url, options) => {
-                    let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-                    return await window.fetch(finalUrl, options);
-                }; 
-                const getClient = async () => ({ request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }) });`);
                 changed = true;
               }
 
@@ -245,12 +233,62 @@ jobs:
             html = html.replace("<head>", "<head>\n" + injection);
             fs.writeFileSync(htmlPath, html);
           }
+          
+          // 11. ANIQUILACIÓN DEL PLUGIN HTTP RUST DESDE LA RAÍZ (node_modules)
+          // Forzamos a la Tienda (Dashboard) a usar WebView para no crashear con los certificados TLS de Android.
+          const httpPluginDirs = [
+              "./node_modules/@tauri-apps/plugin-http/dist-js/index.js",
+              "./node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
+              "./node_modules/@tauri-apps/plugin-http/dist-js/index.cjs",
+              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.js",
+              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
+              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.cjs"
+          ];
+
+          const mockHttpCode = `
+          export async function fetch(url, options) {
+              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
+              return await window.fetch(finalUrl, options);
+          }
+          export async function getClient() {
+              return {
+                  request: fetch,
+                  get: (url, options) => fetch(url, { ...options, method: 'GET' }),
+                  post: (url, options) => fetch(url, { ...options, method: 'POST' }),
+                  drop: () => {}
+              };
+          }
+          `;
+
+          const mockHttpCodeCjs = `
+          "use strict";
+          Object.defineProperty(exports, "__esModule", { value: true });
+          exports.fetch = async function(url, options) {
+              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
+              return await window.fetch(finalUrl, options);
+          };
+          exports.getClient = async function() {
+              return {
+                  request: exports.fetch,
+                  get: (url, options) => exports.fetch(url, { ...options, method: 'GET' }),
+                  post: (url, options) => exports.fetch(url, { ...options, method: 'POST' }),
+                  drop: () => {}
+              };
+          };
+          `;
+
+          httpPluginDirs.forEach(p => {
+              if (fs.existsSync(p)) {
+                  try { fs.unlinkSync(p); } catch(e) {}
+                  fs.writeFileSync(p, p.endsWith(".cjs") ? mockHttpCodeCjs : mockHttpCode);
+              }
+          });
           EOF
 
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Bypass Híbrido)
+      - name: 🛠️ Parchear Hook de Módulos (Bypass de CORS XMLHttpRequest Múltiple)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -282,26 +320,37 @@ jobs:
                 
                 try {
                   const targetUrl = release.downloadUrl;
-                  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+                  const encoded = encodeURIComponent(targetUrl);
                   
-                  const arrayBuffer = await new Promise((resolve, reject) => {
-                      const xhr = new XMLHttpRequest();
-                      xhr.open('GET', proxyUrl, true);
-                      xhr.responseType = 'arraybuffer';
-                      xhr.onload = function(e) {
-                          if (this.status == 200) {
-                              resolve(this.response);
-                          } else {
-                              reject(new Error("Proxy CORS denegado: " + this.status));
-                          }
-                      };
-                      xhr.onerror = function() {
-                          reject(new Error("Error de red con el proxy AllOrigins"));
-                      };
-                      xhr.send();
-                  });
+                  // Redundancia masiva de proxies para evitar el CORS de Android
+                  const proxies = [
+                    "https://corsproxy.io/?" + encoded,
+                    "https://api.allorigins.win/raw?url=" + encoded,
+                    "https://api.codetabs.com/v1/proxy?quest=" + encoded,
+                    "https://ghproxy.net/" + targetUrl
+                  ];
+                  
+                  let arrayBuffer;
+                  for (const pUrl of proxies) {
+                      try {
+                          arrayBuffer = await new Promise((resolve, reject) => {
+                              const xhr = new XMLHttpRequest();
+                              xhr.open('GET', pUrl, true);
+                              xhr.responseType = 'arraybuffer';
+                              xhr.onload = function() {
+                                  if (this.status >= 200 && this.status < 300) resolve(this.response);
+                                  else reject(new Error("Status " + this.status));
+                              };
+                              xhr.onerror = () => reject(new Error("Network Error"));
+                              xhr.send();
+                          });
+                          if (arrayBuffer) break;
+                      } catch(e) {
+                          console.warn("Proxy falló: ", pUrl);
+                      }
+                  }
 
-                  if (!arrayBuffer) throw new Error("Datos binarios corruptos o nulos.");
+                  if (!arrayBuffer) throw new Error("Datos binarios corruptos o nulos. Todos los proxies fallaron.");
 
                   const JSZip = window.JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
