@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna AppData
+          // 2. CAPACIDADES DE TAURI: Autorización absoluta
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS INTERNAS DINÁMICAS (Selector UI Nativo)
+          // 9. SUPER PARCHE DE FRONTEND: Puntero de Ruta Inquebrantable
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,27 +190,33 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // Bypass dinámico. Permite introducir plugin-1, plugin-2... directamente desde la App.
+              // Dialog Bypass: Lee el target de forma segura dentro de la AppData
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\n` + code;
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => {
-                    let d = localStorage.getItem("np_last") || "plugin-1";
-                    let f = prompt("Carpeta del plugin a cargar (Local/...):", d);
-                    if (!f) throw new Error("Cancelado por el usuario");
-                    localStorage.setItem("np_last", f);
-                    return (await __tAppDataDir()) + "/NuclearPlugins/Local/" + f;
+                `const open = async (...args) => {
+                    const path = await import('@tauri-apps/api/path');
+                    const fs = await import('@tauri-apps/plugin-fs');
+                    try { 
+                        const content = await fs.readTextFile("NuclearPlugins/target.txt", { baseDir: fs.BaseDirectory.AppData });
+                        return content.trim(); 
+                    } catch(e) { 
+                        return (await path.appDataDir()) + "/NuclearPlugins/Manual"; 
+                    }
                 }; 
-                const message = async (...args: any[]) => {}; 
-                const ask = async (...args: any[]) => true; 
-                const confirm = async (...args: any[]) => true; 
-                const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
+                const message = async (...args) => {}; 
+                const ask = async (...args) => true; 
+                const confirm = async (...args) => true; 
+                const save = async (...args) => {
+                    const path = await import('@tauri-apps/api/path');
+                    return (await path.appDataDir()) + "/NuclearExport";
+                };`);
                 changed = true;
               }
 
+              // Window Bypass
               if (code.includes("@tauri-apps/api/window")) {
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
-                `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
+                `const getCurrentWindow = () => ({ setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
                 changed = true;
               }
 
@@ -231,7 +237,7 @@ jobs:
             fs.writeFileSync(htmlPath, html);
           }
           
-          // 11. ANIQUILACIÓN DEL PLUGIN HTTP RUST DESDE LA RAÍZ (Cura del Dashboard)
+          // 11. ANIQUILACIÓN DEL PLUGIN HTTP RUST (Cura del Dashboard)
           const httpPluginDirs = [
               "./node_modules/@tauri-apps/plugin-http/dist-js/index.js",
               "./node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
@@ -247,12 +253,7 @@ jobs:
               return await window.fetch(finalUrl, options);
           }
           export async function getClient() {
-              return {
-                  request: fetch,
-                  get: (url, options) => fetch(url, { ...options, method: 'GET' }),
-                  post: (url, options) => fetch(url, { ...options, method: 'POST' }),
-                  drop: () => {}
-              };
+              return { request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }), drop: () => {} };
           }
           `;
 
@@ -264,12 +265,7 @@ jobs:
               return await window.fetch(finalUrl, options);
           };
           exports.getClient = async function() {
-              return {
-                  request: exports.fetch,
-                  get: (url, options) => exports.fetch(url, { ...options, method: 'GET' }),
-                  post: (url, options) => exports.fetch(url, { ...options, method: 'POST' }),
-                  drop: () => {}
-              };
+              return { request: exports.fetch, get: (u, o) => exports.fetch(u, { ...o, method: 'GET' }), post: (u, o) => exports.fetch(u, { ...o, method: 'POST' }), drop: () => {} };
           };
           `;
 
@@ -284,7 +280,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Tipado Estricto + Bypass Tienda)
+      - name: 🛠️ Parchear Hook de Módulos (Bypass de Tienda con Native Download)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -296,8 +292,11 @@ jobs:
           import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
-          import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
+          import { mkdir, writeFile, readFile, remove } from '@tauri-apps/plugin-fs';
           import { appDataDir } from '@tauri-apps/api/path';
+          
+          // LA CURA ABSOLUTA: Usamos el motor de descargas nativo de Android que sortea el CORS y aísla la carga.
+          import { download } from '@tauri-apps/plugin-upload';
 
           export type InstallPluginParams = { plugin: MarketplacePlugin; };
 
@@ -306,48 +305,20 @@ jobs:
             const loadPluginFromPath = usePluginStore((s) => s.loadPluginFromPath);
             const enablePlugin = usePluginStore((s) => s.enablePlugin);
 
-            // Inyección segura de tipos TS para evitar fallos del pipeline
             return useMutation<{ plugin: MarketplacePlugin; version: string }, Error, InstallPluginParams>({
               mutationFn: async ({ plugin }) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 const baseDir = await appDataDir();
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
+                const tempZip = baseDir + "/NuclearPlugins/temp_" + plugin.id + ".zip";
                 
                 try {
-                  const targetUrl = release.downloadUrl;
-                  const encoded = encodeURIComponent(targetUrl);
+                  // Descarga Nativa (Ignora CORS y evita pánicos TLS)
+                  await download(release.downloadUrl, tempZip);
                   
-                  const proxies = [
-                    "https://corsproxy.io/?" + encoded,
-                    "https://api.allorigins.win/raw?url=" + encoded,
-                    "https://api.codetabs.com/v1/proxy?quest=" + encoded,
-                    "https://ghproxy.net/" + targetUrl
-                  ];
-                  
-                  let arrayBuffer;
-                  for (const pUrl of proxies) {
-                      try {
-                          arrayBuffer = await new Promise((resolve, reject) => {
-                              const xhr = new XMLHttpRequest();
-                              xhr.open('GET', pUrl, true);
-                              xhr.responseType = 'arraybuffer';
-                              xhr.onload = function() {
-                                  if (this.status >= 200 && this.status < 300) resolve(this.response);
-                                  else reject(new Error("Status " + this.status));
-                              };
-                              xhr.onerror = () => reject(new Error("Network Error"));
-                              xhr.send();
-                          });
-                          if (arrayBuffer) break;
-                      } catch(e) {
-                          console.warn("Proxy falló: ", pUrl);
-                      }
-                  }
-
-                  if (!arrayBuffer) throw new Error("Datos binarios nulos. Todos los proxies fallaron.");
-
+                  const zipData = await readFile(tempZip);
                   const JSZip = (window as any).JSZip;
-                  const zip = await JSZip.loadAsync(arrayBuffer);
+                  const zip = await JSZip.loadAsync(zipData);
 
                   try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
 
@@ -362,9 +333,10 @@ jobs:
                       await writeFile(fullPath, content);
                     }
                   }
+                  try { await remove(tempZip); } catch(e) {}
                 } catch(e) {
                   console.error("Fallo durante instalación en tienda:", e);
-                  throw e;
+                  throw new Error("Descarga nativa bloqueada o archivo corrupto.");
                 }
 
                 const now = new Date().toISOString();
