@@ -230,7 +230,7 @@ function removeMocks() {
 async function initController(
   controller: MseController,
 ): Promise<MockMediaSource> {
-  const initPromise = controller.init(audio, MSE_URL, 180);
+  const initPromise = controller.init(audio, MSE_URL);
 
   await vi.waitFor(() => expect(latestMediaSource).not.toBeNull());
   latestMediaSource!.open();
@@ -262,7 +262,7 @@ describe('MseController', () => {
     expect(audio.src).toContain('blob:mock-url');
   });
 
-  it('sets mediaSource.duration to the provided value', async () => {
+  it('sets mediaSource.duration from the sidx index', async () => {
     const controller = new MseController();
     await initController(controller);
 
@@ -306,7 +306,7 @@ describe('MseController', () => {
     delete win.ManagedMediaSource;
 
     const controller = new MseController();
-    await controller.init(audio, MSE_URL, 180);
+    await controller.init(audio, MSE_URL);
 
     await flushMicrotasks();
 
@@ -372,6 +372,54 @@ describe('MseController', () => {
     expect(managedConstructor).toHaveBeenCalledOnce();
     expect(createObjectURLSpy).not.toHaveBeenCalled();
     expect(audio.srcObject).toBe(latestMediaSource);
+  });
+
+  it('calls endOfStream after the final media segment is appended', async () => {
+    const controller = new MseController();
+    const mediaSource = await initController(controller);
+
+    expect(mediaSource.endOfStream).not.toHaveBeenCalled();
+
+    const sourceBuffer = mediaSource.sourceBuffers[0];
+    sourceBuffer.buffered = new MockTimeRanges();
+
+    Object.defineProperty(audio, 'currentTime', {
+      value: 170,
+      writable: true,
+      configurable: true,
+    });
+
+    await controller.handleSeeking(audio);
+    await flushMicrotasks();
+
+    expect(mediaSource.endOfStream).toHaveBeenCalled();
+  });
+
+  it('chain-fetches all remaining segments after a single handleTimeUpdate call', async () => {
+    const controller = new MseController();
+    const mediaSource = await initController(controller);
+
+    fetchMock.mockClear();
+
+    const sourceBuffer = mediaSource.sourceBuffers[0];
+    sourceBuffer.buffered = new MockTimeRanges();
+    sourceBuffer.buffered.addRange(0, 60);
+
+    Object.defineProperty(audio, 'currentTime', {
+      value: 50,
+      writable: true,
+      configurable: true,
+    });
+
+    controller.handleTimeUpdate(audio);
+    await flushMicrotasks();
+
+    const segmentFetchCalls = fetchMock.mock.calls.filter((call: unknown[]) => {
+      const opts = call[1] as { headers?: { Range?: string } } | undefined;
+      return opts?.headers?.Range && opts.headers.Range !== 'bytes=0-8191';
+    });
+
+    expect(segmentFetchCalls.length).toBe(2);
   });
 
   it('fetches next segment on timeupdate when buffer is low', async () => {

@@ -111,7 +111,6 @@ export class MseController {
   async init(
     audio: HTMLAudioElement,
     url: string,
-    durationSeconds: number,
     codec?: string,
     onError?: (error: Error) => void,
   ): Promise<void> {
@@ -142,6 +141,9 @@ export class MseController {
 
     const { initSegmentEnd, segments } = index;
     this.segments = segments;
+
+    const sidxDuration =
+      segments.length > 0 ? segments[segments.length - 1].endTime : 0;
 
     const initSegment = headerBytes.slice(0, initSegmentEnd);
     this.initSegment = initSegment;
@@ -181,7 +183,7 @@ export class MseController {
     const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
     this.sourceBuffer = sourceBuffer;
 
-    mediaSource.duration = durationSeconds;
+    mediaSource.duration = sidxDuration;
 
     sourceBuffer.appendBuffer(initSegment.buffer as ArrayBuffer);
     await waitForUpdateEnd(sourceBuffer);
@@ -224,6 +226,7 @@ export class MseController {
     this.isFetching = true;
     this.fetchAndAppendSegment(nextIndex, controller.signal).finally(() => {
       this.isFetching = false;
+      this.handleTimeUpdate(audio);
     });
   }
 
@@ -371,11 +374,11 @@ export class MseController {
     sourceBuffer.appendBuffer(segmentData.buffer as ArrayBuffer);
     await waitForUpdateEnd(sourceBuffer);
 
-    const allFetched = this.fetchedSegments.size === segments.length;
+    const isFinalSegment = segmentIndex === segments.length - 1;
     const mediaSource = this.mediaSource;
 
     if (
-      allFetched &&
+      isFinalSegment &&
       mediaSource &&
       mediaSource.readyState === 'open' &&
       !sourceBuffer.updating
