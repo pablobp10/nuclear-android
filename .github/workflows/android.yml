@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna AppData
+          // 2. CAPACIDADES DE TAURI: Autorización absoluta
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS CON PUNTERO DINÁMICO
+          // 9. SUPER PARCHE DE FRONTEND: Lectura de target autorizada por Tauri
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,32 +190,42 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // Bypass seguro para el diálogo de archivos. Lee el archivo target.txt inyectado por Termux.
+              // Bypass seguro para el diálogo de archivos usando Scope de Tauri
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                const inyeccion = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile } from '@tauri-apps/plugin-fs';\n`;
+                const inyeccion = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile, BaseDirectory as __tBaseDirectory } from '@tauri-apps/plugin-fs';\n`;
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
                 `const open = async (...args: any[]) => {
-                    const b = await __tAppDataDir();
-                    try { return (await __tReadTextFile(b + "/NuclearPlugins/target.txt")).trim(); } 
-                    catch(e) { return b + "/NuclearPlugins/Manual"; }
-                }; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
+                    try { 
+                        const contenido = await __tReadTextFile("NuclearPlugins/target.txt", { baseDir: __tBaseDirectory.AppData });
+                        return contenido.trim(); 
+                    } catch(e) { 
+                        const b = await __tAppDataDir();
+                        return b + "/NuclearPlugins/Manual"; 
+                    }
+                }; 
+                const message = async (...args: any[]) => {}; 
+                const ask = async (...args: any[]) => true; 
+                const confirm = async (...args: any[]) => true; 
+                const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
                 code = inyeccion + code;
                 changed = true;
               }
 
+              // Mockeo de las funciones de redimensión de ventana
               if (code.includes("@tauri-apps/api/window")) {
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
                 `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
                 changed = true;
               }
 
-              // Anulación de Rust TLS para que el Dashboard funcione.
+              // Anulación de la librería de Rust (HTTP) para evitar el panic de TLS y usar el motor WebView de Android.
               if (code.includes("@tauri-apps/plugin-http")) {
                 code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-http['"];?/g, 
                 `const fetch = async (url, options) => {
                     let finalUrl = typeof url === 'string' ? url : (url?.url || url);
                     return await window.fetch(finalUrl, options);
-                }; const getClient = async () => ({ request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }) });`);
+                }; 
+                const getClient = async () => ({ request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }) });`);
                 changed = true;
               }
 
@@ -240,7 +250,7 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Bypass de Red Sin Cabeceras + AppData)
+      - name: 🛠️ Parchear Hook de Módulos (Bypass Híbrido)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -266,32 +276,32 @@ jobs:
             return useMutation({
               mutationFn: async ({ plugin }: InstallPluginParams) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
+                
                 const baseDir = await appDataDir();
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  const encodedUrl = encodeURIComponent(release.downloadUrl);
-                  const proxies = [
-                    "https://corsproxy.io/?" + encodedUrl,
-                    "https://api.allorigins.win/raw?url=" + encodedUrl,
-                    "https://mirror.ghproxy.com/" + release.downloadUrl,
-                    "https://ghproxy.net/" + release.downloadUrl
-                  ];
+                  const targetUrl = release.downloadUrl;
+                  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
                   
-                  let res;
-                  let arrayBuffer;
-                  
-                  for (const url of proxies) {
-                    try {
-                      res = await window.fetch(url); 
-                      if (res.ok) {
-                        arrayBuffer = await res.arrayBuffer();
-                        break;
-                      }
-                    } catch(e) { console.warn("Proxy falló: ", url); }
-                  }
-                  
-                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los proxies rechazaron la conexión CORS.");
+                  const arrayBuffer = await new Promise((resolve, reject) => {
+                      const xhr = new XMLHttpRequest();
+                      xhr.open('GET', proxyUrl, true);
+                      xhr.responseType = 'arraybuffer';
+                      xhr.onload = function(e) {
+                          if (this.status == 200) {
+                              resolve(this.response);
+                          } else {
+                              reject(new Error("Proxy CORS denegado: " + this.status));
+                          }
+                      };
+                      xhr.onerror = function() {
+                          reject(new Error("Error de red con el proxy AllOrigins"));
+                      };
+                      xhr.send();
+                  });
+
+                  if (!arrayBuffer) throw new Error("Datos binarios corruptos o nulos.");
 
                   const JSZip = window.JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
