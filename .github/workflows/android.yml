@@ -30,7 +30,6 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      # --- MEJORA FUTURA 1: SISTEMA DE CACHÉ ---
       - name: Obtener directorio de caché de pnpm
         id: pnpm-cache-dir
         run: echo "STORE_PATH=$(npm config get cache)" >> $GITHUB_ENV
@@ -53,7 +52,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - name: Instalar pnpm y dependencias del proyecto
+      - name: Instalar pnpm y dependencias
         run: |
           npm install -g pnpm@10.33.4
           pnpm install
@@ -64,7 +63,6 @@ jobs:
           const fs = require("fs");
           const path = require("path");
 
-          // --- MEJORA FUTURA 3: BLINDAJE TRY/CATCH ---
           function overwriteSafe(filePath, modifierFunc) {
               try {
                   if (fs.existsSync(filePath)) {
@@ -74,17 +72,16 @@ jobs:
                       fs.writeFileSync(filePath, content, "utf8");
                       console.log(`[EXITO] Parcheado: ${filePath}`);
                   } else {
-                      console.warn(`[AVISO] Archivo no encontrado, saltando: ${filePath}`);
+                      console.warn(`[AVISO] Archivo no encontrado: ${filePath}`);
                   }
               } catch (e) {
-                  console.error(`[ERROR CRITICO] Fallo al parchear ${filePath}:`, e);
+                  console.error(`[ERROR CRITICO] Fallo en ${filePath}:`, e);
                   process.exit(1);
               }
           }
 
-          // 1. CARGO.TOML: Certificados TLS Nativos y Optimizaciones LTO
+          // 1. CARGO.TOML: Feature corregida ('rustls-native-certs') y LTO
           overwriteSafe("./packages/player/src-tauri/Cargo.toml", (code) => {
-              // Limpiar plugins de escritorio
               let lines = code.split("\n").filter(line => 
                   !line.includes("tauri-plugin-updater") &&
                   !line.includes("tauri-plugin-process") &&
@@ -92,27 +89,25 @@ jobs:
               );
               let result = lines.join("\n");
               
-              // Inyectar certificados raíz de Android para que la Tienda pueda descargar
               result = result.replace(
                   /reqwest = \{ version = "0.13", features = \["json", "cookies", "stream"\] \}/g, 
-                  'reqwest = { version = "0.13", default-features = false, features = ["json", "cookies", "stream", "rustls-tls-native-roots"] }'
+                  'reqwest = { version = "0.13", default-features = false, features = ["json", "cookies", "stream", "rustls", "rustls-native-certs"] }'
               );
               
-              // --- MEJORA FUTURA 2: LTO y OPTIMIZACIÓN EXTREMA ---
               if (!result.includes("[profile.release]")) {
                   result += `\n\n[profile.release]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
               }
               return result;
           });
 
-          // 2. RUST YTDLP: Cura exacta para el error de compilación E0308
+          // 2. YTDLP_SETUP.RS: Reemplazo exacto para evitar el error E0308
           overwriteSafe("./packages/player/src-tauri/src/ytdlp_setup.rs", (code) => {
-              let res = code.replace(/fn release_filename\(\) -> &'static str \{[\s\S]*?fn binary_name\(\)/, "fn release_filename() -> &'static str { \"yt-dlp.zip\" }\n\nfn binary_name()");
+              let res = code.replace(/fn release_filename\(\) -> &'static str \{[\s\S]*?fn binary_name/, "fn release_filename() -> &'static str { \"yt-dlp.zip\" }\n\nfn binary_name");
               res = res.replace(/fn binary_name\(\) -> &'static str \{[\s\S]*?fn ytdlp_dir/, "fn binary_name() -> &'static str { \"yt-dlp\" }\n\nfn ytdlp_dir");
               return res;
           });
 
-          // 3. RUST LIB: Retirar llamadas a plugins de escritorio
+          // 3. LIB.RS: Limpieza de plugins de escritorio
           overwriteSafe("./packages/player/src-tauri/src/lib.rs", (code) => {
               let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
               res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
@@ -120,44 +115,16 @@ jobs:
               return res;
           });
 
-          // 4. ESBUILD WASM: Fijar ruta absoluta para WebAssembly
+          // 4. ESBUILD WASM: Corrección de ruta
           overwriteSafe("./packages/player/src/services/plugins/pluginCompiler.ts", (code) => {
               return code.replace(
                 /await es\.mod\.initialize\(\{[\s\S]*?wasmURL:\s*wasmUrl,[\s\S]*?worker:\s*false\s*\}\);/g,
                 `const fullWasmUrl = new URL(wasmUrl, window.location.origin).href;\n      await es.mod.initialize({ wasmURL: fullWasmUrl, worker: false });`
               );
           });
-
-          // 5. ANDROID MANIFEST: Permisos de Red
-          const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
-          overwriteSafe(manifestPath, (manifest) => {
-              if (!manifest.includes("android.permission.INTERNET")) {
-                manifest = manifest.replace("<application", `<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application`);
-              }
-              if (!manifest.includes('android:usesCleartextTraffic="true"')) {
-                manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true" ');
-              }
-              return manifest;
-          });
-
-          // 6. CAPABILITIES: Permisos absolutos de FileSystem para Tauri
-          const capsDir = "./packages/player/src-tauri/capabilities";
-          try {
-              if (fs.existsSync(capsDir)) {
-                  const almightyCap = {
-                      identifier: "android-almighty",
-                      windows: ["*"],
-                      permissions: [
-                        "core:window:allow-set-decorations", "core:window:allow-set-size", "core:window:allow-maximize", "core:window:allow-minimize", "core:window:allow-close", "core:window:allow-hide", "core:window:allow-show", "fs:allow-read", "fs:allow-write", "fs:allow-exists", "fs:allow-stat", "fs:allow-read-dir", "fs:allow-mkdir", "fs:allow-remove", "fs:scope-appdata-recursive"
-                      ]
-                  };
-                  fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
-                  console.log("[EXITO] Capacidad Almighty creada.");
-              }
-          } catch(e) { console.error("Error en capabilities:", e); }
           EOF
 
-      - name: 🛠️ Ejecutar Parches de Compatibilidad y Optimización
+      - name: 🛠️ Ejecutar Parches de Compatibilidad
         run: node patch.cjs
 
       - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
@@ -182,8 +149,6 @@ jobs:
           cp public/logo-icon-on-white.png src-tauri/icons/icon.png
           cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
           npx tauri icon public/logo-icon-on-white.png
-          
-          # Construimos SIN --debug para activar las optimizaciones Release/LTO
           npx tauri android build --apk --target aarch64
 
       - name: Subir APK final
