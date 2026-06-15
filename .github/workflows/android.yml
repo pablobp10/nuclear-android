@@ -125,19 +125,7 @@ jobs:
               );
           });
 
-          // 5. ANDROID MANIFEST: Permisos de Red en el archivo real generado por Tauri
-          const manifestPath = "./packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml";
-          overwriteSafe(manifestPath, (manifest) => {
-              if (!manifest.includes("android.permission.INTERNET")) {
-                manifest = manifest.replace("<application", `<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application`);
-              }
-              if (!manifest.includes('android:usesCleartextTraffic="true"')) {
-                manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true" ');
-              }
-              return manifest;
-          });
-
-          // 6. CAPABILITIES: Permisos absolutos para evitar bloqueos
+          // 5. CAPABILITIES: Permisos absolutos para evitar bloqueos
           const capsDir = "./packages/player/src-tauri/capabilities";
           try {
               if (fs.existsSync(capsDir)) {
