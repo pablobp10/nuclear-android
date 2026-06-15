@@ -56,7 +56,6 @@ jobs:
               !line.includes("tauri-plugin-window-state")
             );
             let cargo = cargoLines.join("\n");
-            // Aquí inyectamos la dependencia crítica que evita el crash del Dashboard
             cargo += '\n[target.\'cfg(target_os = "android")\'.dependencies]\nrustls-platform-verifier = "0.6"\n';
             fs.writeFileSync(cargoPath, cargo);
           }
@@ -66,17 +65,14 @@ jobs:
           if (fs.existsSync(libPath)) {
             let code = fs.readFileSync(libPath, "utf8");
             
-            // Bypass de los constructores antiguos
             code = code.replace(/tauri_plugin_window_state::Builder::default\(\)\.build\(\)/g, "tauri_plugin_window_state::Builder::default().build()");
             code = code.replace(/tauri_plugin_updater::Builder::new\(\)\.build\(\)/g, "tauri_plugin_updater::Builder::new().build()");
             code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* .plugin(window_state) */");
             
-            // Reemplazo por el dummy plugin
             code = code.replace(/tauri_plugin_window_state/g, "crate::dummy_plugin");
             code = code.replace(/tauri_plugin_updater/g, "crate::dummy_plugin");
             code = code.replace(/tauri_plugin_process/g, "crate::dummy_plugin");
             
-            // MAGIA: Cura absoluta contra el Pánico de Rust "Expect rustls-platform-verifier to be initialized"
             code = code.replace(/pub fn run\(\) \{/, 'pub fn run() {\n    #[cfg(target_os = "android")]\n    rustls_platform_verifier::android::init();\n');
             
             const dummyMod = `pub mod dummy_plugin { pub struct Builder; impl Builder { pub fn default() -> Self { Self } pub fn new() -> Self { Self } pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } } pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } }`;
@@ -84,7 +80,6 @@ jobs:
             fs.writeFileSync(libPath, code);
           }
 
-          // Los otros archivos Rust
           const rsDirs = ["./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
           rsDirs.forEach(f => {
             if (fs.existsSync(f)) {
@@ -189,7 +184,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 8. SUPER PARCHE DE FRONTEND: Puntero de Ruta Dinámico a prueba de ESBuild
+          // 8. SUPER PARCHE DE FRONTEND: Puntero de Ruta Dinámico Inquebrantable
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -204,7 +199,6 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // Bypass seguro para el diálogo. Usa Imports Dinámicos internos para que el compilador no los rompa.
               if (code.includes("@tauri-apps/plugin-dialog")) {
                 code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
                 `const open = async (...args) => {
@@ -227,7 +221,6 @@ jobs:
                 changed = true;
               }
 
-              // Mockeo de las funciones de redimensión de ventana
               if (code.includes("@tauri-apps/api/window")) {
                 code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
                 `const getCurrentWindow = () => ({ setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
@@ -235,7 +228,10 @@ jobs:
               }
 
               if (changed) {
-                code = "// @ts-nocheck\n" + code;
+                // Removemos explícitamente cualquier ts-nocheck anterior por seguridad
+                code = code.replace(/\/\/ @ts-nocheck\n/g, '');
+                // Forzamos compatibilidad global sin desactivar el tipado
+                code = "/* eslint-disable */\n" + code;
                 fs.writeFileSync(filePath, code);
               }
             }
@@ -255,31 +251,31 @@ jobs:
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Uso NATIVO de Tauri HTTP contra CORS)
+      - name: 🛠️ Parchear Hook de Módulos (Tipado Estricto de TypeScript)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
           cat << 'EOF' > "$TS_FILE"
-          // @ts-nocheck
           import { useMutation } from '@tanstack/react-query';
           import { toast } from 'sonner';
           import { useTranslation } from '@nuclearplayer/i18n';
-          import { pluginMarketplaceApi } from '../apis/pluginMarketplaceApi';
+          import { pluginMarketplaceApi, type MarketplacePlugin } from '../apis/pluginMarketplaceApi';
           import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
           import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
           import { appDataDir } from '@tauri-apps/api/path';
-          
-          // Magia: Usamos el motor nativo de Tauri en Rust. Al haber curado el TLS en lib.rs, saltará el CORS y descargará a máxima velocidad.
           import { fetch as tauriFetch } from '@tauri-apps/plugin-http'; 
+
+          export type InstallPluginParams = { plugin: MarketplacePlugin; };
 
           export const useInstallPlugin = () => {
             const { t } = useTranslation('plugins');
             const loadPluginFromPath = usePluginStore((s) => s.loadPluginFromPath);
             const enablePlugin = usePluginStore((s) => s.enablePlugin);
 
-            return useMutation({
+            // Genéricos explícitos para evitar el error TS2345 (tipo 'void' no asignable)
+            return useMutation<{ plugin: MarketplacePlugin; version: string }, Error, InstallPluginParams>({
               mutationFn: async ({ plugin }) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 const baseDir = await appDataDir();
@@ -290,12 +286,13 @@ jobs:
                   if (!res.ok) throw new Error("Error HTTP de Tienda: " + res.status);
                   
                   const arrayBuffer = await res.arrayBuffer();
-                  const JSZip = window.JSZip;
+                  // Forzado 'any' para evitar que TS rechace la inyección global
+                  const JSZip = (window as any).JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
 
                   try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
 
-                  for (const [filename, fileData] of Object.entries(zip.files)) {
+                  for (const [filename, fileData] of Object.entries(zip.files as Record<string, any>)) {
                     const fullPath = safeDir + "/" + filename;
                     if (fileData.dir) {
                       try { await mkdir(fullPath, { recursive: true }); } catch(e) {}
@@ -325,7 +322,7 @@ jobs:
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
-                const message = resolveErrorMessage(error);
+                const message = resolveErrorMessage(error as Error);
                 toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
               },
             });
