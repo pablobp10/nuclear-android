@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS LOCALES CON PUNTERO DINÁMICO
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS CON PUNTERO DINÁMICO
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,31 +190,32 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // Bypass de selección de archivos usando un puntero de inyección estático (target.txt)
+              // Bypass seguro para el diálogo de archivos. Lee el archivo target.txt inyectado por Termux.
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile } from '@tauri-apps/plugin-fs';\n` + code;
-                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => { 
-                    const b = await __tAppDataDir(); 
-                    try {
-                        // Leemos la coordenada inyectada por Termux
-                        const target = await __tReadTextFile(b + "/NuclearPlugins/target.txt");
-                        return target.trim();
-                    } catch(e) {
-                        // Fallback de seguridad si no existe el archivo
-                        return b + "/NuclearPlugins/Manual"; 
-                    }
-                 };
-                 const message = async (...args: any[]) => {}; 
-                 const ask = async (...args: any[]) => true; 
-                 const confirm = async (...args: any[]) => true; 
-                 const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
+                const inyeccion = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile } from '@tauri-apps/plugin-fs';\n`;
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
+                `const open = async (...args: any[]) => {
+                    const b = await __tAppDataDir();
+                    try { return (await __tReadTextFile(b + "/NuclearPlugins/target.txt")).trim(); } 
+                    catch(e) { return b + "/NuclearPlugins/Manual"; }
+                }; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
+                code = inyeccion + code;
                 changed = true;
               }
 
               if (code.includes("@tauri-apps/api/window")) {
-                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
                 `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
+                changed = true;
+              }
+
+              // Anulación de Rust TLS para que el Dashboard funcione.
+              if (code.includes("@tauri-apps/plugin-http")) {
+                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-http['"];?/g, 
+                `const fetch = async (url, options) => {
+                    let finalUrl = typeof url === 'string' ? url : (url?.url || url);
+                    return await window.fetch(finalUrl, options);
+                }; const getClient = async () => ({ request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }) });`);
                 changed = true;
               }
 
@@ -224,7 +225,6 @@ jobs:
               }
             }
           });
-
 
           // 10. INYECCIÓN DE JSZIP Y ELIMINACIÓN DE CSP
           const htmlPath = "./packages/player/index.html";
@@ -266,16 +266,14 @@ jobs:
             return useMutation({
               mutationFn: async ({ plugin }: InstallPluginParams) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
-                
                 const baseDir = await appDataDir();
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  // Matriz de Proxies para evadir la Política de CORS en el ZIP
                   const encodedUrl = encodeURIComponent(release.downloadUrl);
                   const proxies = [
                     "https://corsproxy.io/?" + encodedUrl,
-                    "https://api.codetabs.com/v1/proxy?quest=" + encodedUrl,
+                    "https://api.allorigins.win/raw?url=" + encodedUrl,
                     "https://mirror.ghproxy.com/" + release.downloadUrl,
                     "https://ghproxy.net/" + release.downloadUrl
                   ];
@@ -293,7 +291,7 @@ jobs:
                     } catch(e) { console.warn("Proxy falló: ", url); }
                   }
                   
-                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los proxies web rechazaron la conexión CORS.");
+                  if (!arrayBuffer) throw new Error("Error HTTP 403: Todos los proxies rechazaron la conexión CORS.");
 
                   const JSZip = window.JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
