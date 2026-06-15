@@ -46,17 +46,59 @@ jobs:
           const fs = require("fs");
           const path = require("path");
 
-          // 1. Desactivar plugins incompatibles de escritorio
-          const rustPath = "./packages/player/src-tauri/src/lib.rs";
-          if (fs.existsSync(rustPath)) {
-            let code = fs.readFileSync(rustPath, "utf8");
+          // 1. CARGO.TOML: Purgar dependencias rotas e Inyectar la cura de TLS para Android
+          const cargoPath = "./packages/player/src-tauri/Cargo.toml";
+          if (fs.existsSync(cargoPath)) {
+            let cargoLines = fs.readFileSync(cargoPath, "utf8").split("\n");
+            cargoLines = cargoLines.filter(line => 
+              !line.includes("tauri-plugin-updater") &&
+              !line.includes("tauri-plugin-process") &&
+              !line.includes("tauri-plugin-window-state")
+            );
+            let cargo = cargoLines.join("\n");
+            // Aquí inyectamos la dependencia crítica que evita el crash del Dashboard
+            cargo += '\n[target.\'cfg(target_os = "android")\'.dependencies]\nrustls-platform-verifier = "0.6"\n';
+            fs.writeFileSync(cargoPath, cargo);
+          }
+
+          // 2. RUST (lib.rs): Inicialización nativa de certificados TLS y Módulo Fantasma
+          const libPath = "./packages/player/src-tauri/src/lib.rs";
+          if (fs.existsSync(libPath)) {
+            let code = fs.readFileSync(libPath, "utf8");
+            
+            // Bypass de los constructores antiguos
             code = code.replace(/tauri_plugin_window_state::Builder::default\(\)\.build\(\)/g, "tauri_plugin_window_state::Builder::default().build()");
             code = code.replace(/tauri_plugin_updater::Builder::new\(\)\.build\(\)/g, "tauri_plugin_updater::Builder::new().build()");
             code = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* .plugin(window_state) */");
-            fs.writeFileSync(rustPath, code);
+            
+            // Reemplazo por el dummy plugin
+            code = code.replace(/tauri_plugin_window_state/g, "crate::dummy_plugin");
+            code = code.replace(/tauri_plugin_updater/g, "crate::dummy_plugin");
+            code = code.replace(/tauri_plugin_process/g, "crate::dummy_plugin");
+            
+            // MAGIA: Cura absoluta contra el Pánico de Rust "Expect rustls-platform-verifier to be initialized"
+            code = code.replace(/pub fn run\(\) \{/, 'pub fn run() {\n    #[cfg(target_os = "android")]\n    rustls_platform_verifier::android::init();\n');
+            
+            const dummyMod = `pub mod dummy_plugin { pub struct Builder; impl Builder { pub fn default() -> Self { Self } pub fn new() -> Self { Self } pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } } pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } }`;
+            if (!code.includes("pub mod dummy_plugin")) { code = dummyMod + "\n" + code; }
+            fs.writeFileSync(libPath, code);
           }
 
-          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna AppData
+          // Los otros archivos Rust
+          const rsDirs = ["./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
+          rsDirs.forEach(f => {
+            if (fs.existsSync(f)) {
+              let code = fs.readFileSync(f, "utf8");
+              if (code.includes("tauri_plugin_window_state") || code.includes("tauri_plugin_updater") || code.includes("tauri_plugin_process")) {
+                code = code.replace(/tauri_plugin_window_state/g, "crate::dummy_plugin");
+                code = code.replace(/tauri_plugin_updater/g, "crate::dummy_plugin");
+                code = code.replace(/tauri_plugin_process/g, "crate::dummy_plugin");
+                fs.writeFileSync(f, code);
+              }
+            }
+          });
+
+          // 3. CAPACIDADES DE TAURI: Autorización absoluta sobre AppData
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -99,7 +141,7 @@ jobs:
           };
           fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
 
-          // 3. AndroidManifest: Internet y Cleartext
+          // 4. AndroidManifest: Internet y Cleartext
           const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
           if (fs.existsSync(manifestPath)) {
             let manifest = fs.readFileSync(manifestPath, "utf8");
@@ -116,35 +158,7 @@ jobs:
             fs.writeFileSync(manifestPath, manifest);
           }
 
-          // 4. Purgar dependencias de Cargo.toml
-          const cargoPath = "./packages/player/src-tauri/Cargo.toml";
-          if (fs.existsSync(cargoPath)) {
-            let cargoLines = fs.readFileSync(cargoPath, "utf8").split("\n");
-            cargoLines = cargoLines.filter(line => 
-              !line.includes("tauri-plugin-updater") &&
-              !line.includes("tauri-plugin-process") &&
-              !line.includes("tauri-plugin-window-state")
-            );
-            fs.writeFileSync(cargoPath, cargoLines.join("\n"));
-          }
-
-          // 5. RUST: Módulo Fantasma Dinámico
-          const dummyMod = `pub mod dummy_plugin { pub struct Builder; impl Builder { pub fn default() -> Self { Self } pub fn new() -> Self { Self } pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } } pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } }`;
-          const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
-          rsDirs.forEach(f => {
-            if (fs.existsSync(f)) {
-              let code = fs.readFileSync(f, "utf8");
-              if (code.includes("tauri_plugin_window_state") || code.includes("tauri_plugin_updater") || code.includes("tauri_plugin_process")) {
-                code = code.replace(/tauri_plugin_window_state/g, "crate::dummy_plugin");
-                code = code.replace(/tauri_plugin_updater/g, "crate::dummy_plugin");
-                code = code.replace(/tauri_plugin_process/g, "crate::dummy_plugin");
-                if (!code.includes("pub mod dummy_plugin")) { code = dummyMod + "\n" + code; }
-                fs.writeFileSync(f, code);
-              }
-            }
-          });
-
-          // 6. RUST YT-DLP
+          // 5. RUST YT-DLP
           const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
           if (fs.existsSync(ytdlpPath)) {
             let code = fs.readFileSync(ytdlpPath, "utf8");
@@ -153,7 +167,7 @@ jobs:
             fs.writeFileSync(ytdlpPath, code);
           }
 
-          // 7. PARCHE PARA ESBUILD EN ANDROID
+          // 6. PARCHE PARA ESBUILD EN ANDROID
           const compilerPath = "./packages/player/src/services/plugins/pluginCompiler.ts";
           if (fs.existsSync(compilerPath)) {
             let code = fs.readFileSync(compilerPath, "utf8");
@@ -164,7 +178,7 @@ jobs:
             fs.writeFileSync(compilerPath, code);
           }
 
-          // 8. PARCHE PARA ERROR DE RUTAS EN TAURI MOBILE
+          // 7. PARCHE PARA ERROR DE RUTAS EN TAURI MOBILE
           const dirPath = "./packages/player/src/services/plugins/pluginDir.ts";
           if (fs.existsSync(dirPath)) {
             let code = fs.readFileSync(dirPath, "utf8");
@@ -175,7 +189,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS ESTÁTICAS Y PUNTERO
+          // 8. SUPER PARCHE DE FRONTEND: Puntero de Ruta Dinámico a prueba de ESBuild
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,30 +204,33 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // Bypass inyectado exactamente con el formato de la versión estable
+              // Bypass seguro para el diálogo. Usa Imports Dinámicos internos para que el compilador no los rompa.
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile } from '@tauri-apps/plugin-fs';\n` + code;
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => {
-                    const b = await __tAppDataDir();
+                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
+                `const open = async (...args) => {
+                    const path = await import('@tauri-apps/api/path');
+                    const fs = await import('@tauri-apps/plugin-fs');
                     try { 
-                        const content = await __tReadTextFile(b + "/NuclearPlugins/target.txt");
+                        const content = await fs.readTextFile("NuclearPlugins/target.txt", { baseDir: fs.BaseDirectory.AppData });
                         return content.trim(); 
                     } catch(e) { 
-                        return b + "/NuclearPlugins/Manual"; 
+                        return (await path.appDataDir()) + "/NuclearPlugins/Manual"; 
                     }
                 }; 
-                const message = async (...args: any[]) => {}; 
-                const ask = async (...args: any[]) => true; 
-                const confirm = async (...args: any[]) => true; 
-                const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
+                const message = async (...args) => {}; 
+                const ask = async (...args) => true; 
+                const confirm = async (...args) => true; 
+                const save = async (...args) => {
+                    const path = await import('@tauri-apps/api/path');
+                    return (await path.appDataDir()) + "/NuclearExport";
+                };`);
                 changed = true;
               }
 
               // Mockeo de las funciones de redimensión de ventana
               if (code.includes("@tauri-apps/api/window")) {
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
-                `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
+                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
+                `const getCurrentWindow = () => ({ setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
                 changed = true;
               }
 
@@ -224,7 +241,7 @@ jobs:
             }
           });
 
-          // 10. INYECCIÓN DE JSZIP Y ELIMINACIÓN DE CSP
+          // 9. INYECCIÓN DE JSZIP Y ELIMINACIÓN DE CSP
           const htmlPath = "./packages/player/index.html";
           if (fs.existsSync(htmlPath)) {
             let html = fs.readFileSync(htmlPath, "utf8");
@@ -233,62 +250,12 @@ jobs:
             html = html.replace("<head>", "<head>\n" + injection);
             fs.writeFileSync(htmlPath, html);
           }
-          
-          // 11. ANIQUILACIÓN DEL PLUGIN HTTP RUST DESDE LA RAÍZ (node_modules)
-          // Forzamos a la Tienda (Dashboard) a usar WebView para no crashear con los certificados TLS de Android.
-          const httpPluginDirs = [
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.js",
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.cjs",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.js",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.cjs"
-          ];
-
-          const mockHttpCode = `
-          export async function fetch(url, options) {
-              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-              return await window.fetch(finalUrl, options);
-          }
-          export async function getClient() {
-              return {
-                  request: fetch,
-                  get: (url, options) => fetch(url, { ...options, method: 'GET' }),
-                  post: (url, options) => fetch(url, { ...options, method: 'POST' }),
-                  drop: () => {}
-              };
-          }
-          `;
-
-          const mockHttpCodeCjs = `
-          "use strict";
-          Object.defineProperty(exports, "__esModule", { value: true });
-          exports.fetch = async function(url, options) {
-              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-              return await window.fetch(finalUrl, options);
-          };
-          exports.getClient = async function() {
-              return {
-                  request: exports.fetch,
-                  get: (url, options) => exports.fetch(url, { ...options, method: 'GET' }),
-                  post: (url, options) => exports.fetch(url, { ...options, method: 'POST' }),
-                  drop: () => {}
-              };
-          };
-          `;
-
-          httpPluginDirs.forEach(p => {
-              if (fs.existsSync(p)) {
-                  try { fs.unlinkSync(p); } catch(e) {}
-                  fs.writeFileSync(p, p.endsWith(".cjs") ? mockHttpCodeCjs : mockHttpCode);
-              }
-          });
           EOF
 
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Bypass de CORS XMLHttpRequest Múltiple)
+      - name: 🛠️ Parchear Hook de Módulos (Uso NATIVO de Tauri HTTP contra CORS)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -297,14 +264,15 @@ jobs:
           import { useMutation } from '@tanstack/react-query';
           import { toast } from 'sonner';
           import { useTranslation } from '@nuclearplayer/i18n';
-          import { pluginMarketplaceApi, type MarketplacePlugin } from '../apis/pluginMarketplaceApi';
+          import { pluginMarketplaceApi } from '../apis/pluginMarketplaceApi';
           import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
           import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
           import { appDataDir } from '@tauri-apps/api/path';
-
-          type InstallPluginParams = { plugin: MarketplacePlugin; };
+          
+          // Magia: Usamos el motor nativo de Tauri en Rust. Al haber curado el TLS en lib.rs, saltará el CORS y descargará a máxima velocidad.
+          import { fetch as tauriFetch } from '@tauri-apps/plugin-http'; 
 
           export const useInstallPlugin = () => {
             const { t } = useTranslation('plugins');
@@ -312,46 +280,16 @@ jobs:
             const enablePlugin = usePluginStore((s) => s.enablePlugin);
 
             return useMutation({
-              mutationFn: async ({ plugin }: InstallPluginParams) => {
+              mutationFn: async ({ plugin }) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
-                
                 const baseDir = await appDataDir();
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
                 
                 try {
-                  const targetUrl = release.downloadUrl;
-                  const encoded = encodeURIComponent(targetUrl);
+                  const res = await tauriFetch(release.downloadUrl, { method: 'GET' });
+                  if (!res.ok) throw new Error("Error HTTP de Tienda: " + res.status);
                   
-                  // Redundancia masiva de proxies para evitar el CORS de Android
-                  const proxies = [
-                    "https://corsproxy.io/?" + encoded,
-                    "https://api.allorigins.win/raw?url=" + encoded,
-                    "https://api.codetabs.com/v1/proxy?quest=" + encoded,
-                    "https://ghproxy.net/" + targetUrl
-                  ];
-                  
-                  let arrayBuffer;
-                  for (const pUrl of proxies) {
-                      try {
-                          arrayBuffer = await new Promise((resolve, reject) => {
-                              const xhr = new XMLHttpRequest();
-                              xhr.open('GET', pUrl, true);
-                              xhr.responseType = 'arraybuffer';
-                              xhr.onload = function() {
-                                  if (this.status >= 200 && this.status < 300) resolve(this.response);
-                                  else reject(new Error("Status " + this.status));
-                              };
-                              xhr.onerror = () => reject(new Error("Network Error"));
-                              xhr.send();
-                          });
-                          if (arrayBuffer) break;
-                      } catch(e) {
-                          console.warn("Proxy falló: ", pUrl);
-                      }
-                  }
-
-                  if (!arrayBuffer) throw new Error("Datos binarios corruptos o nulos. Todos los proxies fallaron.");
-
+                  const arrayBuffer = await res.arrayBuffer();
                   const JSZip = window.JSZip;
                   const zip = await JSZip.loadAsync(arrayBuffer);
 
@@ -369,7 +307,7 @@ jobs:
                     }
                   }
                 } catch(e) {
-                  console.error("Fallo durante el puenteo de instalación:", e);
+                  console.error("Fallo durante instalación nativa:", e);
                   throw e;
                 }
 
