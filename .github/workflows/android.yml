@@ -46,7 +46,7 @@ jobs:
           const fs = require("fs");
           const path = require("path");
 
-          // 1. Desactivar plugins incompatibles de escritorio
+          // 1. Desactivar plugins incompatibles de escritorio en Rust
           const rustPath = "./packages/player/src-tauri/src/lib.rs";
           if (fs.existsSync(rustPath)) {
             let code = fs.readFileSync(rustPath, "utf8");
@@ -56,79 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna
-          const capsDir = "./packages/player/src-tauri/capabilities";
-          const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
-          if (fs.existsSync(capsDir)) {
-            const files = fs.readdirSync(capsDir).filter(f => f.endsWith(".json"));
-            for (const file of files) {
-              const fPath = path.join(capsDir, file);
-              try {
-                const data = JSON.parse(fs.readFileSync(fPath, "utf8"));
-                if (data.permissions) {
-                  data.permissions = data.permissions.filter(p => {
-                    const pName = typeof p === "string" ? p : p.identifier;
-                    return pName && permitidos.some(prefix => pName.startsWith(prefix));
-                  });
-                  fs.writeFileSync(fPath, JSON.stringify(data, null, 2));
-                }
-              } catch(e) {}
-            }
-          }
-
-          const almightyCap = {
-            identifier: "android-almighty",
-            windows: ["*"],
-            permissions: [
-              "core:window:allow-set-decorations",
-              "core:window:allow-set-size",
-              "core:window:allow-maximize",
-              "core:window:allow-minimize",
-              "core:window:allow-close",
-              "core:window:allow-hide",
-              "core:window:allow-show",
-              "fs:allow-read",
-              "fs:allow-write",
-              "fs:allow-exists",
-              "fs:allow-stat",
-              "fs:allow-read-dir",
-              "fs:allow-mkdir",
-              "fs:allow-remove",
-              "fs:scope-appdata-recursive"
-            ]
-          };
-          fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
-
-          // 3. AndroidManifest: Internet y Cleartext
-          const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
-          if (fs.existsSync(manifestPath)) {
-            let manifest = fs.readFileSync(manifestPath, "utf8");
-            if (!manifest.includes("android.permission.INTERNET")) {
-              const permisosAndroid = `
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <application`;
-              manifest = manifest.replace("<application", permisosAndroid);
-            }
-            if (!manifest.includes('android:usesCleartextTraffic="true"')) {
-              manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true"');
-            }
-            fs.writeFileSync(manifestPath, manifest);
-          }
-
-          // 4. Purgar dependencias de Cargo.toml
-          const cargoPath = "./packages/player/src-tauri/Cargo.toml";
-          if (fs.existsSync(cargoPath)) {
-            let cargoLines = fs.readFileSync(cargoPath, "utf8").split("\n");
-            cargoLines = cargoLines.filter(line => 
-              !line.includes("tauri-plugin-updater") &&
-              !line.includes("tauri-plugin-process") &&
-              !line.includes("tauri-plugin-window-state")
-            );
-            fs.writeFileSync(cargoPath, cargoLines.join("\n"));
-          }
-
-          // 5. RUST: Módulo Fantasma Dinámico
+          // 2. Módulo Fantasma Dinámico para compilar Rust sin errores
           const dummyMod = `pub mod dummy_plugin { pub struct Builder; impl Builder { pub fn default() -> Self { Self } pub fn new() -> Self { Self } pub fn build<R: tauri::Runtime>(self) -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } } pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> { tauri::plugin::Builder::new("dummy").build() } }`;
           const rsDirs = ["./packages/player/src-tauri/src/lib.rs", "./packages/player/src-tauri/src/setup.rs", "./packages/player/src-tauri/src/main.rs"];
           rsDirs.forEach(f => {
@@ -144,16 +72,32 @@ jobs:
             }
           });
 
-          // 6. RUST YT-DLP
-          const ytdlpPath = "./packages/player/src-tauri/src/ytdlp_setup.rs";
-          if (fs.existsSync(ytdlpPath)) {
-            let code = fs.readFileSync(ytdlpPath, "utf8");
-            code = code.replace(/fn\s+release_filename.*?\{/g, "fn release_filename() -> &'static str { return \"yt-dlp\";");
-            code = code.replace(/fn\s+binary_name.*?\{/g, "fn binary_name() -> &'static str { return \"yt-dlp\";");
-            fs.writeFileSync(ytdlpPath, code);
+          // 3. Purgar dependencias rotas de Cargo.toml
+          const cargoPath = "./packages/player/src-tauri/Cargo.toml";
+          if (fs.existsSync(cargoPath)) {
+            let cargoLines = fs.readFileSync(cargoPath, "utf8").split("\n");
+            cargoLines = cargoLines.filter(line => 
+              !line.includes("tauri-plugin-updater") &&
+              !line.includes("tauri-plugin-process") &&
+              !line.includes("tauri-plugin-window-state")
+            );
+            fs.writeFileSync(cargoPath, cargoLines.join("\n"));
           }
 
-          // 7. PARCHE PARA ESBUILD EN ANDROID
+          // 4. Configurar AndroidManifest.xml (Permisos de Red)
+          const manifestPath = path.join(__dirname, "packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml");
+          if (fs.existsSync(manifestPath)) {
+            let manifest = fs.readFileSync(manifestPath, "utf8");
+            if (!manifest.includes("android.permission.INTERNET")) {
+              manifest = manifest.replace("<application", `<uses-permission android:name="android.permission.INTERNET" />\n<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n<application`);
+            }
+            if (!manifest.includes('android:usesCleartextTraffic="true"')) {
+              manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true"');
+            }
+            fs.writeFileSync(manifestPath, manifest);
+          }
+
+          // 5. Parche ESBuild para WebAssembly
           const compilerPath = "./packages/player/src/services/plugins/pluginCompiler.ts";
           if (fs.existsSync(compilerPath)) {
             let code = fs.readFileSync(compilerPath, "utf8");
@@ -164,128 +108,53 @@ jobs:
             fs.writeFileSync(compilerPath, code);
           }
 
-          // 8. PARCHE PARA ERROR DE RUTAS EN TAURI MOBILE
-          const dirPath = "./packages/player/src/services/plugins/pluginDir.ts";
-          if (fs.existsSync(dirPath)) {
-            let code = fs.readFileSync(dirPath, "utf8");
-            code = code.replace(/await remove\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g,
-                                "await remove(destination, { recursive: true });");
-            code = code.replace(/await mkdir\(destination,\s*\{[^}]*baseDir:\s*BaseDirectory\.AppData,?\s*\}\);/g,
-                                "await mkdir(destination, { recursive: true });");
-            fs.writeFileSync(dirPath, code);
-          }
-
-          // 9. SUPER PARCHE DE FRONTEND: Inyección de Tipado Estricto Dinámico
-          function walkSync(currentDirPath, callback) {
-            fs.readdirSync(currentDirPath).forEach(function (name) {
-                var filePath = path.join(currentDirPath, name);
-                var stat = fs.statSync(filePath);
-                if (stat.isFile()) callback(filePath);
-                else if (stat.isDirectory()) walkSync(filePath, callback);
-            });
-          }
-
-          walkSync("./packages/player/src", function(filePath) {
-            if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) {
-              let code = fs.readFileSync(filePath, "utf8");
-              let changed = false;
-
-              // Destructuración inteligente para que TypeScript no chille "variables not read"
-              if (code.includes("@tauri-apps/plugin-dialog")) {
-                code = code.replace(/import\s+\{([^}]*)\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const __tDialog: any = {
-                    open: async () => {
-                        const path = await import('@tauri-apps/api/path');
-                        const fs = await import('@tauri-apps/plugin-fs');
-                        try { 
-                            const contenido = await fs.readTextFile("NuclearPlugins/target.txt", { baseDir: fs.BaseDirectory.AppData });
-                            return contenido.trim(); 
-                        } catch(e) { 
-                            return (await path.appDataDir()) + "/NuclearPlugins/Manual"; 
-                        }
-                    },
-                    message: async () => {},
-                    ask: async () => true,
-                    confirm: async () => true,
-                    save: async () => {
-                        const path = await import('@tauri-apps/api/path');
-                        return (await path.appDataDir()) + "/NuclearExport";
-                    }
-                };
-                const { $1 } = __tDialog;`);
-                changed = true;
-              }
-
-              if (code.includes("@tauri-apps/api/window")) {
-                code = code.replace(/import\s+\{([^}]*)\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
-                `const __tWindow: any = {
-                    getCurrentWindow: () => ({ setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false }),
-                    appWindow: { setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false }
-                };
-                const { $1 } = __tWindow;`);
-                changed = true;
-              }
-
-              if (changed) {
-                fs.writeFileSync(filePath, code);
-              }
-            }
-          });
-
-          // 10. INYECCIÓN DE JSZIP Y ELIMINACIÓN DE CSP
+          // 6. Inyección global de JSZip (Necesario para descomprimir plugins)
           const htmlPath = "./packages/player/index.html";
           if (fs.existsSync(htmlPath)) {
             let html = fs.readFileSync(htmlPath, "utf8");
             html = html.replace(/<meta[^>]*Content-Security-Policy[^>]*>/gi, "");
-            const injection = `<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script>window.onerror = function(msg) { console.error('ERROR GLOBAL: ' + msg); return false; }; window.addEventListener('unhandledrejection', function(event) { console.error('PROMESA: ' + (event.reason?.message || event.reason)); });</script>`;
+            const injection = `<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>`;
             html = html.replace("<head>", "<head>\n" + injection);
             fs.writeFileSync(htmlPath, html);
           }
-          
-          // 11. ANIQUILACIÓN DEL PLUGIN HTTP RUST (Cura del Dashboard)
-          const httpPluginDirs = [
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.js",
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
-              "./node_modules/@tauri-apps/plugin-http/dist-js/index.cjs",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.js",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
-              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.cjs"
-          ];
 
-          const mockHttpCode = `
-          export async function fetch(url, options) {
-              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-              return await window.fetch(finalUrl, options);
-          }
-          export async function getClient() {
-              return { request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }), drop: () => {} };
-          }
-          `;
-
-          const mockHttpCodeCjs = `
-          "use strict";
-          Object.defineProperty(exports, "__esModule", { value: true });
-          exports.fetch = async function(url, options) {
-              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-              return await window.fetch(finalUrl, options);
-          };
-          exports.getClient = async function() {
-              return { request: exports.fetch, get: (u, o) => exports.fetch(u, { ...o, method: 'GET' }), post: (u, o) => exports.fetch(u, { ...o, method: 'POST' }), drop: () => {} };
-          };
-          `;
-
-          httpPluginDirs.forEach(p => {
-              if (fs.existsSync(p)) {
-                  try { fs.unlinkSync(p); } catch(e) {}
-                  fs.writeFileSync(p, p.endsWith(".cjs") ? mockHttpCodeCjs : mockHttpCode);
+          // 7. EL GOLPE MAESTRO: Reescribir node_modules para sanear la Tienda y evitar el código muerto
+          function overwriteSafe(filePath, content) {
+              if (fs.existsSync(filePath)) {
+                  try { fs.unlinkSync(filePath); } catch(e) {}
+                  fs.writeFileSync(filePath, content, "utf8");
               }
-          });
+          }
+
+          const httpCode = `export async function fetch(url, options) { let finalUrl = typeof url === 'string' ? url : (url?.url || url); return await window.fetch(finalUrl, options); } export async function getClient() { return { request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }), drop: () => {} }; }`;
+          const dialogCode = `export async function open() { return null; } export async function save() { return null; } export async function message() {} export async function ask() { return true; } export async function confirm() { return true; }`;
+          const windowCode = `class WebviewWindow { constructor() {} static getCurrent() { return new WebviewWindow(); } async setDecorations() {} async setResizable() {} async maximize() {} async unmaximize() {} async minimize() {} async close() {} async hide() {} async show() {} async onFocusChanged() { return () => {}; } async onCloseRequested() { return () => {}; } async isMaximized() { return false; } async isMinimized() { return false; } async isFullscreen() { return false; } } export const appWindow = new WebviewWindow(); export { WebviewWindow as Window, WebviewWindow as getCurrentWindow };`;
+
+          const modulesToMock = {
+              // Bypass de HTTP (Previene el pánico de Rust TLS)
+              "node_modules/@tauri-apps/plugin-http/dist-js/index.js": httpCode,
+              "node_modules/@tauri-apps/plugin-http/dist-js/index.mjs": httpCode,
+              "packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.js": httpCode,
+              "packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.mjs": httpCode,
+              // Bypass de Dialog (Previene cuelgues en Android)
+              "node_modules/@tauri-apps/plugin-dialog/dist-js/index.js": dialogCode,
+              "node_modules/@tauri-apps/plugin-dialog/dist-js/index.mjs": dialogCode,
+              "packages/player/node_modules/@tauri-apps/plugin-dialog/dist-js/index.js": dialogCode,
+              "packages/player/node_modules/@tauri-apps/plugin-dialog/dist-js/index.mjs": dialogCode,
+              // Bypass de Window (Previene cuelgues en Android)
+              "node_modules/@tauri-apps/api/window.js": windowCode,
+              "node_modules/@tauri-apps/api/window.mjs": windowCode,
+              "packages/player/node_modules/@tauri-apps/api/window.js": windowCode,
+              "packages/player/node_modules/@tauri-apps/api/window.mjs": windowCode,
+          };
+
+          Object.entries(modulesToMock).forEach(([p, content]) => overwriteSafe(p, content));
           EOF
 
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Tipado y Proxy de Tienda)
+      - name: 🛠️ Parchear Hook de Tienda (Descarga Nativa de Tauri y Tipado Estricto)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
@@ -297,8 +166,11 @@ jobs:
           import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
-          import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
+          import { mkdir, writeFile, readFile, remove } from '@tauri-apps/plugin-fs';
           import { appDataDir } from '@tauri-apps/api/path';
+          
+          // Api nativa de Tauri para descargas seguras (Bypass de CORS)
+          import { download } from '@tauri-apps/plugin-upload';
 
           export type InstallPluginParams = { plugin: MarketplacePlugin; };
 
@@ -312,42 +184,16 @@ jobs:
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 const baseDir = await appDataDir();
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
+                const tempZip = baseDir + "/NuclearPlugins/temp_" + plugin.id + ".zip";
                 
                 try {
-                  const targetUrl = release.downloadUrl;
-                  const encoded = encodeURIComponent(targetUrl);
+                  // Descarga nativa invulnerable
+                  await download(release.downloadUrl, tempZip);
                   
-                  const proxies = [
-                    "https://corsproxy.io/?" + encoded,
-                    "https://api.allorigins.win/raw?url=" + encoded,
-                    "https://api.codetabs.com/v1/proxy?quest=" + encoded,
-                    "https://ghproxy.net/" + targetUrl
-                  ];
-                  
-                  let arrayBuffer;
-                  for (const pUrl of proxies) {
-                      try {
-                          arrayBuffer = await new Promise((resolve, reject) => {
-                              const xhr = new XMLHttpRequest();
-                              xhr.open('GET', pUrl, true);
-                              xhr.responseType = 'arraybuffer';
-                              xhr.onload = function() {
-                                  if (this.status >= 200 && this.status < 300) resolve(this.response);
-                                  else reject(new Error("Status " + this.status));
-                              };
-                              xhr.onerror = () => reject(new Error("Network Error"));
-                              xhr.send();
-                          });
-                          if (arrayBuffer) break;
-                      } catch(e) {
-                          console.warn("Proxy falló: ", pUrl);
-                      }
-                  }
-
-                  if (!arrayBuffer) throw new Error("Datos binarios nulos. Proxies fallaron.");
-
+                  const zipData = await readFile(tempZip);
+                  // Usamos any para evadir el linter de Typescript en compilación
                   const JSZip = (window as any).JSZip;
-                  const zip = await JSZip.loadAsync(arrayBuffer);
+                  const zip = await JSZip.loadAsync(zipData);
 
                   try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
 
@@ -362,9 +208,12 @@ jobs:
                       await writeFile(fullPath, content);
                     }
                   }
+                  
+                  try { await remove(tempZip); } catch(e) {}
+
                 } catch(e) {
-                  console.error("Fallo durante instalación en tienda:", e);
-                  throw e;
+                  console.error("Fallo durante instalación de tienda:", e);
+                  throw new Error("Descarga bloqueada o archivo corrupto.");
                 }
 
                 const now = new Date().toISOString();
