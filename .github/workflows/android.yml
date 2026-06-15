@@ -80,7 +80,7 @@ jobs:
               }
           }
 
-          // 1. CARGO.TOML: Feature corregida ('rustls-native-certs') y LTO
+          // 1. CARGO.TOML: Optimizaciones extremas aplicadas al entorno DEV (para permitir firmado automático)
           overwriteSafe("./packages/player/src-tauri/Cargo.toml", (code) => {
               let lines = code.split("\n").filter(line => 
                   !line.includes("tauri-plugin-updater") &&
@@ -89,18 +89,20 @@ jobs:
               );
               let result = lines.join("\n");
               
+              // TLS nativo para que funcione la Tienda
               result = result.replace(
                   /reqwest = \{ version = "0.13", features = \["json", "cookies", "stream"\] \}/g, 
                   'reqwest = { version = "0.13", default-features = false, features = ["json", "cookies", "stream", "rustls", "rustls-native-certs"] }'
               );
               
-              if (!result.includes("[profile.release]")) {
-                  result += `\n\n[profile.release]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
+              // Inyectamos las optimizaciones de Release en el perfil de desarrollo
+              if (!result.includes("[profile.dev]")) {
+                  result += `\n\n[profile.dev]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
               }
               return result;
           });
 
-          // 2. YTDLP_SETUP.RS: Reemplazo exacto para evitar el error E0308
+          // 2. YTDLP_SETUP.RS: Cura para el error E0308
           overwriteSafe("./packages/player/src-tauri/src/ytdlp_setup.rs", (code) => {
               let res = code.replace(/fn release_filename\(\) -> &'static str \{[\s\S]*?fn binary_name/, "fn release_filename() -> &'static str { \"yt-dlp.zip\" }\n\nfn binary_name");
               res = res.replace(/fn binary_name\(\) -> &'static str \{[\s\S]*?fn ytdlp_dir/, "fn binary_name() -> &'static str { \"yt-dlp\" }\n\nfn ytdlp_dir");
@@ -122,10 +124,35 @@ jobs:
                 `const fullWasmUrl = new URL(wasmUrl, window.location.origin).href;\n      await es.mod.initialize({ wasmURL: fullWasmUrl, worker: false });`
               );
           });
-          EOF
 
-      - name: 🛠️ Ejecutar Parches de Compatibilidad
-        run: node patch.cjs
+          // 5. ANDROID MANIFEST: Permisos de Red en el archivo real generado por Tauri
+          const manifestPath = "./packages/player/src-tauri/gen/android/app/src/main/AndroidManifest.xml";
+          overwriteSafe(manifestPath, (manifest) => {
+              if (!manifest.includes("android.permission.INTERNET")) {
+                manifest = manifest.replace("<application", `<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application`);
+              }
+              if (!manifest.includes('android:usesCleartextTraffic="true"')) {
+                manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true" ');
+              }
+              return manifest;
+          });
+
+          // 6. CAPABILITIES: Permisos absolutos para evitar bloqueos
+          const capsDir = "./packages/player/src-tauri/capabilities";
+          try {
+              if (fs.existsSync(capsDir)) {
+                  const almightyCap = {
+                      identifier: "android-almighty",
+                      windows: ["*"],
+                      permissions: [
+                        "core:window:allow-set-decorations", "core:window:allow-set-size", "core:window:allow-maximize", "core:window:allow-minimize", "core:window:allow-close", "core:window:allow-hide", "core:window:allow-show", "fs:allow-read", "fs:allow-write", "fs:allow-exists", "fs:allow-stat", "fs:allow-read-dir", "fs:allow-mkdir", "fs:allow-remove", "fs:scope-appdata-recursive"
+                      ]
+                  };
+                  fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
+                  console.log("[EXITO] Capacidad Almighty creada.");
+              }
+          } catch(e) { console.error("Error en capabilities:", e); }
+          EOF
 
       - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
         run: |
@@ -136,12 +163,12 @@ jobs:
             echo "❌ Carpeta android_ui no encontrada, ignorando..."
           fi
           
-      - name: Compilar Frontend y Dependencias (React)
+      - name: Compilar Frontend (React)
         run: |
           cd packages/player
           pnpm run build:frontend
 
-      - name: Construir y Compilar APK (Release Optimizado)
+      - name: Inicializar Proyecto Android (Generar Rutas)
         run: |
           cd packages/player
           rm -rf src-tauri/gen/android
@@ -149,7 +176,16 @@ jobs:
           cp public/logo-icon-on-white.png src-tauri/icons/icon.png
           cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
           npx tauri icon public/logo-icon-on-white.png
-          npx tauri android build --apk --target aarch64
+
+      - name: 🛠️ Ejecutar Parches de Compatibilidad
+        run: node patch.cjs
+
+      - name: Construir y Compilar APK (Firmado Automático + Optimizado)
+        run: |
+          cd packages/player
+          # Usamos --debug para que Android lo firme y lo deje instalar.
+          # Rust usará el [profile.dev] ultra-optimizado que le inyectamos.
+          npx tauri android build --debug --apk --target aarch64
 
       - name: Subir APK final
         uses: actions/upload-artifact@v4
