@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS LOCALES ESTÁTICAS Y BYPASS DE TLS
+          // 9. SUPER PARCHE DE FRONTEND: RUTAS LOCALES CON PUNTERO DINÁMICO
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,28 +190,31 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // TU INYECCIÓN LOCAL: 100% Intacta, estática y comprobada.
+              // Bypass de selección de archivos usando un puntero de inyección estático (target.txt)
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\n` + code;
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearPlugins/Manual"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
+                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\nimport { readTextFile as __tReadTextFile } from '@tauri-apps/plugin-fs';\n` + code;
+                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
+                `const open = async (...args: any[]) => { 
+                    const b = await __tAppDataDir(); 
+                    try {
+                        // Leemos la coordenada inyectada por Termux
+                        const target = await __tReadTextFile(b + "/NuclearPlugins/target.txt");
+                        return target.trim();
+                    } catch(e) {
+                        // Fallback de seguridad si no existe el archivo
+                        return b + "/NuclearPlugins/Manual"; 
+                    }
+                 };
+                 const message = async (...args: any[]) => {}; 
+                 const ask = async (...args: any[]) => true; 
+                 const confirm = async (...args: any[]) => true; 
+                 const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
                 changed = true;
               }
 
-              // Mockeo de las funciones de redimensión de ventana
               if (code.includes("@tauri-apps/api/window")) {
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
+                code = code.replace(/import\s+\{[\s\S]*?\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
                 `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
-                changed = true;
-              }
-
-              // NUEVA INYECCIÓN: Extirpamos el motor TLS de Rust y lo forzamos a WebView para la Tienda
-              if (code.includes("@tauri-apps/plugin-http")) {
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-http['"];?/g, 
-                `const fetch = async (url, options) => {
-                    let finalUrl = typeof url === 'string' ? url : (url?.url || url);
-                    return await window.fetch(finalUrl, options);
-                }; const getClient = async () => ({ request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }) });`);
                 changed = true;
               }
 
@@ -221,6 +224,7 @@ jobs:
               }
             }
           });
+
 
           // 10. INYECCIÓN DE JSZIP Y ELIMINACIÓN DE CSP
           const htmlPath = "./packages/player/index.html";
