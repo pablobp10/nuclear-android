@@ -56,7 +56,7 @@ jobs:
             fs.writeFileSync(rustPath, code);
           }
 
-          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna AppData
+          // 2. CAPACIDADES DE TAURI: Autorización absoluta sobre la carpeta Interna
           const capsDir = "./packages/player/src-tauri/capabilities";
           const permitidos = ["core:", "dialog:", "fs:", "log:", "opener:", "store:", "upload:", "http:", "network:"];
           if (fs.existsSync(capsDir)) {
@@ -175,7 +175,7 @@ jobs:
             fs.writeFileSync(dirPath, code);
           }
 
-          // 9. SUPER PARCHE DE FRONTEND: RUTAS LOCALES ESTÁTICAS
+          // 9. SUPER PARCHE DE FRONTEND: Inyección de Tipado Estricto Dinámico
           function walkSync(currentDirPath, callback) {
             fs.readdirSync(currentDirPath).forEach(function (name) {
                 var filePath = path.join(currentDirPath, name);
@@ -190,22 +190,43 @@ jobs:
               let code = fs.readFileSync(filePath, "utf8");
               let changed = false;
 
-              // TU CÓDIGO ORIGINAL LOCAL (Que funcionaba)
+              // Destructuración inteligente para que TypeScript no chille "variables not read"
               if (code.includes("@tauri-apps/plugin-dialog")) {
-                code = `import { appDataDir as __tAppDataDir } from '@tauri-apps/api/path';\n` + code;
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
-                `const open = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearPlugins/Manual"; const message = async (...args: any[]) => {}; const ask = async (...args: any[]) => true; const confirm = async (...args: any[]) => true; const save = async (...args: any[]) => (await __tAppDataDir()) + "/NuclearExport";`);
+                code = code.replace(/import\s+\{([^}]*)\}\s+from\s+['"]@tauri-apps\/plugin-dialog['"];?/g, 
+                `const __tDialog: any = {
+                    open: async () => {
+                        const path = await import('@tauri-apps/api/path');
+                        const fs = await import('@tauri-apps/plugin-fs');
+                        try { 
+                            const contenido = await fs.readTextFile("NuclearPlugins/target.txt", { baseDir: fs.BaseDirectory.AppData });
+                            return contenido.trim(); 
+                        } catch(e) { 
+                            return (await path.appDataDir()) + "/NuclearPlugins/Manual"; 
+                        }
+                    },
+                    message: async () => {},
+                    ask: async () => true,
+                    confirm: async () => true,
+                    save: async () => {
+                        const path = await import('@tauri-apps/api/path');
+                        return (await path.appDataDir()) + "/NuclearExport";
+                    }
+                };
+                const { $1 } = __tDialog;`);
                 changed = true;
               }
 
               if (code.includes("@tauri-apps/api/window")) {
-                code = code.replace(/import\s+\{[^}]*\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
-                `const getCurrentWindow = () => ({ setDecorations: async (...args: any[]) => {}, setResizable: async (...args: any[]) => {}, maximize: async (...args: any[]) => {}, unmaximize: async (...args: any[]) => {}, minimize: async (...args: any[]) => {}, close: async (...args: any[]) => {}, hide: async (...args: any[]) => {}, show: async (...args: any[]) => {}, onCloseRequested: async (...args: any[]) => () => {}, onFocusChanged: async (...args: any[]) => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false } as any); const appWindow = getCurrentWindow();`);
+                code = code.replace(/import\s+\{([^}]*)\}\s+from\s+['"]@tauri-apps\/api\/window['"];?/g, 
+                `const __tWindow: any = {
+                    getCurrentWindow: () => ({ setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false }),
+                    appWindow: { setDecorations: async () => {}, setResizable: async () => {}, maximize: async () => {}, unmaximize: async () => {}, minimize: async () => {}, close: async () => {}, hide: async () => {}, show: async () => {}, onCloseRequested: async () => () => {}, onFocusChanged: async () => () => {}, isMaximized: async () => false, isMinimized: async () => false, isFullscreen: async () => false }
+                };
+                const { $1 } = __tWindow;`);
                 changed = true;
               }
 
               if (changed) {
-                code = "// @ts-nocheck\n" + code;
                 fs.writeFileSync(filePath, code);
               }
             }
@@ -220,17 +241,55 @@ jobs:
             html = html.replace("<head>", "<head>\n" + injection);
             fs.writeFileSync(htmlPath, html);
           }
+          
+          // 11. ANIQUILACIÓN DEL PLUGIN HTTP RUST (Cura del Dashboard)
+          const httpPluginDirs = [
+              "./node_modules/@tauri-apps/plugin-http/dist-js/index.js",
+              "./node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
+              "./node_modules/@tauri-apps/plugin-http/dist-js/index.cjs",
+              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.js",
+              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.mjs",
+              "./packages/player/node_modules/@tauri-apps/plugin-http/dist-js/index.cjs"
+          ];
+
+          const mockHttpCode = `
+          export async function fetch(url, options) {
+              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
+              return await window.fetch(finalUrl, options);
+          }
+          export async function getClient() {
+              return { request: fetch, get: (u, o) => fetch(u, { ...o, method: 'GET' }), post: (u, o) => fetch(u, { ...o, method: 'POST' }), drop: () => {} };
+          }
+          `;
+
+          const mockHttpCodeCjs = `
+          "use strict";
+          Object.defineProperty(exports, "__esModule", { value: true });
+          exports.fetch = async function(url, options) {
+              let finalUrl = typeof url === 'string' ? url : (url?.url || url);
+              return await window.fetch(finalUrl, options);
+          };
+          exports.getClient = async function() {
+              return { request: exports.fetch, get: (u, o) => exports.fetch(u, { ...o, method: 'GET' }), post: (u, o) => exports.fetch(u, { ...o, method: 'POST' }), drop: () => {} };
+          };
+          `;
+
+          httpPluginDirs.forEach(p => {
+              if (fs.existsSync(p)) {
+                  try { fs.unlinkSync(p); } catch(e) {}
+                  fs.writeFileSync(p, p.endsWith(".cjs") ? mockHttpCodeCjs : mockHttpCode);
+              }
+          });
           EOF
 
       - name: 🛠️ Ejecutar Parches de Sistema
         run: node patch.cjs
 
-      - name: 🛠️ Parchear Hook de Módulos (Bypass de Tienda usando Tauri Download API)
+      - name: 🛠️ Parchear Hook de Módulos (Tipado y Proxy de Tienda)
         run: |
           TS_FILE=$(find ./packages/player/src -name "useInstallPlugin.ts" | head -n 1)
           if [ -n "$TS_FILE" ]; then
           cat << 'EOF' > "$TS_FILE"
-          // @ts-nocheck
           import { useMutation } from '@tanstack/react-query';
           import { toast } from 'sonner';
           import { useTranslation } from '@nuclearplayer/i18n';
@@ -238,38 +297,61 @@ jobs:
           import { upsertRegistryEntry } from '../services/plugins/pluginRegistry';
           import { usePluginStore } from '../stores/pluginStore';
           import { resolveErrorMessage } from '../utils/logging';
-          import { mkdir, writeFile, readFile, remove } from '@tauri-apps/plugin-fs';
+          import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
           import { appDataDir } from '@tauri-apps/api/path';
-          
-          // IMPORTAMOS LA API DE DESCARGA NATIVA DE TAURI
-          import { download } from '@tauri-apps/plugin-upload';
 
-          type InstallPluginParams = { plugin: MarketplacePlugin; };
+          export type InstallPluginParams = { plugin: MarketplacePlugin; };
 
           export const useInstallPlugin = () => {
             const { t } = useTranslation('plugins');
             const loadPluginFromPath = usePluginStore((s) => s.loadPluginFromPath);
             const enablePlugin = usePluginStore((s) => s.enablePlugin);
 
-            return useMutation({
-              mutationFn: async ({ plugin }: InstallPluginParams) => {
+            return useMutation<{ plugin: MarketplacePlugin; version: string }, Error, InstallPluginParams>({
+              mutationFn: async ({ plugin }) => {
                 const release = await pluginMarketplaceApi.getLatestRelease(plugin.repo);
                 const baseDir = await appDataDir();
                 const safeDir = baseDir + "/NuclearPlugins/" + plugin.id;
-                const tempZip = baseDir + "/NuclearPlugins/temp_" + plugin.id + ".zip";
                 
                 try {
-                  // DESCARGA NATIVA: Ignora la política de CORS y descarga el binario puro directamente al sistema de archivos de Android.
-                  await download(release.downloadUrl, tempZip);
+                  const targetUrl = release.downloadUrl;
+                  const encoded = encodeURIComponent(targetUrl);
                   
-                  // Leer el binario directamente del almacenamiento interno
-                  const zipData = await readFile(tempZip);
-                  const JSZip = window.JSZip;
-                  const zip = await JSZip.loadAsync(zipData);
+                  const proxies = [
+                    "https://corsproxy.io/?" + encoded,
+                    "https://api.allorigins.win/raw?url=" + encoded,
+                    "https://api.codetabs.com/v1/proxy?quest=" + encoded,
+                    "https://ghproxy.net/" + targetUrl
+                  ];
+                  
+                  let arrayBuffer;
+                  for (const pUrl of proxies) {
+                      try {
+                          arrayBuffer = await new Promise((resolve, reject) => {
+                              const xhr = new XMLHttpRequest();
+                              xhr.open('GET', pUrl, true);
+                              xhr.responseType = 'arraybuffer';
+                              xhr.onload = function() {
+                                  if (this.status >= 200 && this.status < 300) resolve(this.response);
+                                  else reject(new Error("Status " + this.status));
+                              };
+                              xhr.onerror = () => reject(new Error("Network Error"));
+                              xhr.send();
+                          });
+                          if (arrayBuffer) break;
+                      } catch(e) {
+                          console.warn("Proxy falló: ", pUrl);
+                      }
+                  }
+
+                  if (!arrayBuffer) throw new Error("Datos binarios nulos. Proxies fallaron.");
+
+                  const JSZip = (window as any).JSZip;
+                  const zip = await JSZip.loadAsync(arrayBuffer);
 
                   try { await mkdir(safeDir, { recursive: true }); } catch(e) {}
 
-                  for (const [filename, fileData] of Object.entries(zip.files)) {
+                  for (const [filename, fileData] of Object.entries(zip.files as Record<string, any>)) {
                     const fullPath = safeDir + "/" + filename;
                     if (fileData.dir) {
                       try { await mkdir(fullPath, { recursive: true }); } catch(e) {}
@@ -280,12 +362,8 @@ jobs:
                       await writeFile(fullPath, content);
                     }
                   }
-                  
-                  // Limpiar el ZIP temporal para no consumir memoria
-                  try { await remove(tempZip); } catch(e) {}
-
                 } catch(e) {
-                  console.error("Fallo durante el puenteo de instalación nativa:", e);
+                  console.error("Fallo durante instalación en tienda:", e);
                   throw e;
                 }
 
@@ -303,7 +381,7 @@ jobs:
                 return { plugin, version: release.version };
               },
               onError: (error, { plugin }) => {
-                const message = resolveErrorMessage(error);
+                const message = resolveErrorMessage(error as Error);
                 toast.error(t('store.installError.title', { name: plugin.name }), { description: message });
               },
             });
