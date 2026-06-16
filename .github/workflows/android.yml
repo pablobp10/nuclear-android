@@ -80,6 +80,7 @@ jobs:
               }
           }
 
+          // 1. CARGO.TOML: Optimizaciones extremas aplicadas al entorno DEV (para permitir firmado automático)
           overwriteSafe("./packages/player/src-tauri/Cargo.toml", (code) => {
               let lines = code.split("\n").filter(line => 
                   !line.includes("tauri-plugin-updater") &&
@@ -88,23 +89,27 @@ jobs:
               );
               let result = lines.join("\n");
               
+              // TLS nativo para que funcione la Tienda
               result = result.replace(
                   /reqwest = \{ version = "0.13", features = \["json", "cookies", "stream"\] \}/g, 
                   'reqwest = { version = "0.13", default-features = false, features = ["json", "cookies", "stream", "rustls", "rustls-native-certs"] }'
               );
               
+              // Inyectamos las optimizaciones de Release en el perfil de desarrollo
               if (!result.includes("[profile.dev]")) {
                   result += `\n\n[profile.dev]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
               }
               return result;
           });
 
+          // 2. YTDLP_SETUP.RS: Cura para el error E0308
           overwriteSafe("./packages/player/src-tauri/src/ytdlp_setup.rs", (code) => {
               let res = code.replace(/fn release_filename\(\) -> &'static str \{[\s\S]*?fn binary_name/, "fn release_filename() -> &'static str { \"yt-dlp.zip\" }\n\nfn binary_name");
               res = res.replace(/fn binary_name\(\) -> &'static str \{[\s\S]*?fn ytdlp_dir/, "fn binary_name() -> &'static str { \"yt-dlp\" }\n\nfn ytdlp_dir");
               return res;
           });
 
+          // 3. LIB.RS: Limpieza de plugins de escritorio
           overwriteSafe("./packages/player/src-tauri/src/lib.rs", (code) => {
               let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
               res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
@@ -112,6 +117,7 @@ jobs:
               return res;
           });
 
+          // 4. ESBUILD WASM: Corrección de ruta
           overwriteSafe("./packages/player/src/services/plugins/pluginCompiler.ts", (code) => {
               return code.replace(
                 /await es\.mod\.initialize\(\{[\s\S]*?wasmURL:\s*wasmUrl,[\s\S]*?worker:\s*false\s*\}\);/g,
@@ -119,6 +125,7 @@ jobs:
               );
           });
 
+          // 5. CAPABILITIES: Permisos absolutos para evitar bloqueos
           const capsDir = "./packages/player/src-tauri/capabilities";
           try {
               if (fs.existsSync(capsDir)) {
@@ -130,6 +137,7 @@ jobs:
                       ]
                   };
                   fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
+                  console.log("[EXITO] Capacidad Almighty creada.");
               }
           } catch(e) { console.error("Error en capabilities:", e); }
           EOF
@@ -163,24 +171,12 @@ jobs:
       - name: Construir y Compilar APK (Firmado Automático + Optimizado)
         run: |
           cd packages/player
+          # Usamos --debug para que Android lo firme y lo deje instalar.
+          # Rust usará el [profile.dev] ultra-optimizado que le inyectamos.
           npx tauri android build --debug --apk --target aarch64
 
-      - name: "🚀 Bypass de Cuota: Subir APK a servidor externo"
-        run: |
-          cd packages/player
-          APK_PATH=$(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" | head -n 1)
-          
-          echo "=========================================================="
-          echo "APK compilado con éxito en: $APK_PATH"
-          echo "Subiendo a File.io y Oshi.at..."
-          echo "=========================================================="
-          
-          echo -e "\n--- ENLACE 1 (Oshi.at) ---"
-          curl -k -T "$APK_PATH" https://oshi.at
-          
-          echo -e "\n\n--- ENLACE 2 (File.io) ---"
-          curl -k -F "file=@$APK_PATH" https://file.io
-          
-          echo -e "\n\n=========================================================="
-          echo "👆 COPIA EL ENLACE QUE TE DE ARRIBA Y ÁBRELO EN TU MÓVIL 👆"
-          echo "=========================================================="
+      - name: Subir APK final
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nuclear-Player-APK
+          path: packages/player/src-tauri/gen/android/**/*.apk
