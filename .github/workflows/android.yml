@@ -183,12 +183,17 @@ jobs:
           
           echo "=========================================================="
           echo "APK encontrado en: $APK_PATH"
-          echo "Subiendo a servidor temporal para evadir el bloqueo de GitHub..."
+          echo "Subiendo a servidores temporales..."
           echo "=========================================================="
           
-          # Subimos el archivo y capturamos la URL de descarga
-          curl -F "file=@$APK_PATH" https://bashupload.com/Nuclear-Player-Signed.apk
+          echo -e "\n--- ENLACE 1 (BashUpload) ---"
+          # Añadimos -k para ignorar el certificado caducado
+          curl -k -F "file=@$APK_PATH" https://bashupload.com/Nuclear-Player-Signed.apk
           
-          echo "=========================================================="
-          echo "👆 COPIA EL ENLACE DE ARRIBA Y ÁBRELO EN TU MÓVIL 👆"
+          echo -e "\n\n--- ENLACE 2 (Transfer.sh) ---"
+          # Subimos un espejo a transfer.sh por si falla el primero
+          curl -H "Max-Days: 1" --upload-file "$APK_PATH" https://transfer.sh/Nuclear-Player-Signed.apk
+          
+          echo -e "\n\n=========================================================="
+          echo "👆 COPIA CUALQUIERA DE LOS DOS ENLACES DE ARRIBA Y ÁBRELO EN TU MÓVIL 👆"
           echo "=========================================================="
