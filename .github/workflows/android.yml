@@ -175,7 +175,7 @@ jobs:
           # Rust usará el [profile.dev] ultra-optimizado que le inyectamos.
           npx tauri android build --debug --apk --target aarch64
 
-       - name: "🚀 Bypass de Cuota: Subir APK a servidor externo"
+      - name: "🚀 Bypass de Cuota: Subir APK a servidor externo"
         run: |
           cd packages/player
           APK_PATH=$(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" | head -n 1)
