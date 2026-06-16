@@ -175,24 +175,25 @@ jobs:
           # Rust usará el [profile.dev] ultra-optimizado que le inyectamos.
           npx tauri android build --debug --apk --target aarch64
 
-      - name: "🚀 Bypass de Cuota: Subir APK a servidor externo"
+       - name: "🚀 Bypass de Cuota: Subir APK a servidor externo"
         run: |
           cd packages/player
-          # Localizamos el APK firmado
           APK_PATH=$(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" | head -n 1)
           
           echo "=========================================================="
-          echo "APK encontrado en: $APK_PATH"
-          echo "Subiendo a servidores temporales ultra-estables..."
+          echo "APK compilado con éxito en: $APK_PATH"
+          echo "Subiendo a File.io y Oshi.at..."
           echo "=========================================================="
           
-          echo -e "\n--- ENLACE 1 (0x0.st) ---"
-          curl -F "file=@$APK_PATH" https://0x0.st
+          echo -e "\n--- ENLACE 1 (Oshi.at) ---"
+          # Oshi devuelve un texto claro con el link de descarga y de borrado
+          curl -T "$APK_PATH" https://oshi.at
           
-          echo -e "\n\n--- ENLACE 2 (Catbox.moe) ---"
-          curl -F "reqtype=fileupload" -F "fileToUpload=@$APK_PATH" https://catbox.moe/user/api.php
+          echo -e "\n\n--- ENLACE 2 (File.io) ---"
+          # File.io devuelve un JSON. Busca donde dice "link":"https://file.io/..."
+          # ¡OJO! El enlace de File.io es de un solo uso. Si lo abres, se borra.
+          curl -F "file=@$APK_PATH" https://file.io
           
           echo -e "\n\n=========================================================="
-          echo "👆 COPIA CUALQUIERA DE LOS DOS ENLACES DE ARRIBA Y ÁBRELO EN TU MÓVIL 👆"
+          echo "👆 COPIA EL ENLACE QUE TE DE ARRIBA Y ÁBRELO EN TU MÓVIL 👆"
           echo "=========================================================="
-
