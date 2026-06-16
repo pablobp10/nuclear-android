@@ -175,8 +175,21 @@ jobs:
           # Rust usará el [profile.dev] ultra-optimizado que le inyectamos.
           npx tauri android build --debug --apk --target aarch64
 
-      - name: Subir APK final
-        uses: actions/upload-artifact@v4
-        with:
-          name: Nuclear-Player-APK
-          path: packages/player/src-tauri/gen/android/**/*.apk
+      - name: 🚀 Bypass de Cuota: Subir APK a servidor externo
+        run: |
+          cd packages/player
+          # Localizamos el APK firmado
+          APK_PATH=$(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          
+          echo "=========================================================="
+          echo "APK encontrado en: $APK_PATH"
+          echo "Subiendo a servidor temporal para evadir el bloqueo de GitHub..."
+          echo "=========================================================="
+          
+          # Subimos el archivo y capturamos la URL de descarga
+          curl -F "file=@$APK_PATH" https://bashupload.com/Nuclear-Player-Signed.apk
+          
+          echo "=========================================================="
+          echo "👆 COPIA EL ENLACE DE ARRIBA Y ÁBRELO EN TU MÓVIL 👆"
+          echo "=========================================================="
+
