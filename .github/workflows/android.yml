@@ -175,7 +175,7 @@ jobs:
           # Rust usará el [profile.dev] ultra-optimizado que le inyectamos.
           npx tauri android build --debug --apk --target aarch64
 
-      - name: "🚀 Bypass de Cuota Subir APK a servidor externo"
+      - name: "🚀 Bypass de Cuota: Subir APK a servidor externo"
         run: |
           cd packages/player
           # Localizamos el APK firmado
@@ -183,17 +183,16 @@ jobs:
           
           echo "=========================================================="
           echo "APK encontrado en: $APK_PATH"
-          echo "Subiendo a servidores temporales..."
+          echo "Subiendo a servidores temporales ultra-estables..."
           echo "=========================================================="
           
-          echo -e "\n--- ENLACE 1 (BashUpload) ---"
-          # Añadimos -k para ignorar el certificado caducado
-          curl -k -F "file=@$APK_PATH" https://bashupload.com/Nuclear-Player-Signed.apk
+          echo -e "\n--- ENLACE 1 (0x0.st) ---"
+          curl -F "file=@$APK_PATH" https://0x0.st
           
-          echo -e "\n\n--- ENLACE 2 (Transfer.sh) ---"
-          # Subimos un espejo a transfer.sh por si falla el primero
-          curl -H "Max-Days: 1" --upload-file "$APK_PATH" https://transfer.sh/Nuclear-Player-Signed.apk
+          echo -e "\n\n--- ENLACE 2 (Catbox.moe) ---"
+          curl -F "reqtype=fileupload" -F "fileToUpload=@$APK_PATH" https://catbox.moe/user/api.php
           
           echo -e "\n\n=========================================================="
           echo "👆 COPIA CUALQUIERA DE LOS DOS ENLACES DE ARRIBA Y ÁBRELO EN TU MÓVIL 👆"
           echo "=========================================================="
+
