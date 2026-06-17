@@ -141,22 +141,19 @@ body, #root {
     margin-right: 4px !important;
 }
 
-
 /* ==========================================================================
-   5. MODIFICACIONES ESPECÍFICAS (NUEVAS PETICIONES)
+   5. AJUSTES ESPECÍFICOS MÓVILES (BARRA SUPERIOR, INFERIOR Y QUEUE)
    ========================================================================== */
 
-/* 5.1 BARRA SUPERIOR (TOP BAR): Quitar todo salvo el modo oscuro */
+/* 5.1 ELIMINAR ELEMENTOS DE LA BARRA SUPERIOR (MANTENIENDO MODO OSCURO) */
 header[data-tauri-drag-region] > div:first-child,
-[data-testid="search-box"] {
+[data-testid="search-box"],
+header[data-tauri-drag-region] > div:last-child > :not(:last-child) {
     display: none !important;
 }
-header[data-tauri-drag-region] > div:last-child > :not(:last-child) {
-    display: none !important; /* Oculta el QR, deja el Switch */
-}
 
-/* 5.2 MENÚ LATERAL IZQUIERDO: Extraer los botones y ponerlos arriba */
-/* Ocultamos el contenedor visual del menú izquierdo para que el contenido principal ocupe todo el ancho */
+/* 5.2 MOVER ELEMENTOS DEL MENÚ IZQUIERDO A LA BARRA SUPERIOR */
+/* Ocultar el espacio físico del panel izquierdo para dar el 100% del ancho a la app */
 div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
     width: 0 !important;
     min-width: 0 !important;
@@ -164,23 +161,25 @@ div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
     padding: 0 !important;
     visibility: hidden !important; 
 }
-/* Rescatamos la navegación, la hacemos visible y la fijamos en la barra superior */
+
+/* Extraer los botones de navegación y fijarlos físicamente arriba a la izquierda */
 [data-testid="sidebar-navigation"] {
     visibility: visible !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    height: 48px !important; /* Coincide con la Top Bar */
-    width: calc(100vw - 60px) !important; /* Deja espacio al Switch oscuro */
+    height: 48px !important; /* Misma altura que la Top Bar original */
+    width: calc(100vw - 80px) !important; /* Dejar espacio libre al switch de tema oscuro */
     flex-direction: row !important;
     align-items: center !important;
     padding: 0 12px !important;
     gap: 8px !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
-    z-index: 2000 !important;
+    z-index: 2000 !important; /* Flotar por encima de todo */
 }
-/* Ocultamos scrollbar y textos, dejando solo iconos */
+
+/* Ocultar scrollbar y el texto de los botones (dejando solo iconos cuadrados) */
 [data-testid="sidebar-navigation"]::-webkit-scrollbar { display: none !important; }
 [data-testid="sidebar-navigation-item"] {
     width: 36px !important; height: 36px !important;
@@ -189,20 +188,23 @@ div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
 }
 [data-testid="sidebar-navigation-item"] span.whitespace-nowrap { display: none !important; }
 
-/* 5.3 BARRA INFERIOR (BOTTOM BAR): Mover elementos internos */
-/* Controles centrales un poco a la izquierda */
+
+/* 5.3 BARRA INFERIOR (BOTTOM BAR) - AJUSTE DE CONTROLES */
+/* Desplazar los controles de reproducción hacia la izquierda */
 footer > div.grid > div:nth-child(2) {
     transform: translateX(-15px) !important;
 }
-/* Botón de sonido sin separación respecto a la barra de volumen */
-footer > div.grid > div:nth-child(3) > div {
-    gap: 0px !important;
+/* Eliminar el slider de volumen */
+[data-testid="player-volume-slider"] {
+    display: none !important;
 }
 
-/* 5.4 BARRA LATERAL DERECHA (QUEUE): Aparecer desde abajo */
+
+/* 5.4 BARRA LATERAL DERECHA (QUEUE) APARECIENDO DESDE ABAJO */
+/* Anclamos el panel de la cola físicamente a la parte inferior, justo por encima de la Bottom Bar */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
-    position: fixed !important; /* La saca del grid, evitando que aplaste el contenido */
-    bottom: 64px !important; /* Justo encima del footer (64px) */
+    position: fixed !important;
+    bottom: 64px !important; /* Altura de la Bottom Bar original */
     left: 0 !important; right: 0 !important;
     width: 100vw !important; max-width: 100vw !important;
     border-left: none !important; border-top: 1px solid rgba(128,128,128,0.2) !important;
@@ -210,19 +212,21 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     z-index: 900 !important;
     transition: height 0.2s ease !important;
 }
-/* Si el panel está colapsado (React le da 54px), forzamos altura colapsada */
+
+/* Traducimos los estados nativos de React (width) a nuestro diseño en Height */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child[style*="width: 54px"] {
-    height: 48px !important; 
+    height: 48px !important; /* Estado Colapsado */
 }
-/* Si el panel está expandido, sube hasta ocupar el 70% de la pantalla */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child:not([style*="width: 54px"]) {
-    height: 70vh !important;
+    height: 70vh !important; /* Estado Expandido */
 }
-/* Quitar la barrita de redimensionar */
+
+/* Eliminar barra de redimensionamiento */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child > div.cursor-col-resize {
     display: none !important;
 }
-/* Centrar y rotar el botón de la Queue */
+
+/* Centrar el botón de abrir cola y rotarlo para indicar que sube/baja */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:first-child {
     justify-content: center !important; width: 100% !important; margin-bottom: 0 !important; padding: 4px 0 !important;
 }
