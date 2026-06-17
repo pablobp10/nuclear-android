@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V12 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
+   PARCHE MÓVIL NUCLEAR PLAYER - V13 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
    ========================================================================== */
 
 /* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
@@ -44,7 +44,7 @@ body, #root {
 [role="dialog"] button[class*="absolute"] { display: none !important; }
 
 /* --------------------------------------------------------------------------
-   2. MENÚ LATERAL (IZQUIERDA) - ANCHO FIJO, NO DEFORMABLE
+   2. MENÚ LATERAL (IZQUIERDA EN AJUSTES) - ANCHO FIJO, NO DEFORMABLE
    -------------------------------------------------------------------------- */
 [role="dialog"] nav {
     display: flex !important;
@@ -63,7 +63,7 @@ body, #root {
     border-right: 1px solid rgba(0,0,0,0.1) !important;
 }
 
-/* Botones de las pestañas */
+/* Botones de las pestañas de ajustes */
 [role="dialog"] nav button {
     width: 100% !important;
     flex-shrink: 0 !important;
@@ -74,11 +74,11 @@ body, #root {
     white-space: normal !important; /* Aquí sí permitimos texto en dos líneas si es largo */
 }
 
-/* Ocultar versión/iconos del fondo del menú para ganar espacio */
+/* Ocultar versión/iconos del fondo del menú de ajustes para ganar espacio */
 [role="dialog"] nav > div:last-child { display: none !important; }
 
 /* --------------------------------------------------------------------------
-   3. CONTENIDO (DERECHA) - ALTURA FIJA Y SCROLL PROPIO
+   3. CONTENIDO AJUSTES (DERECHA) - ALTURA FIJA Y SCROLL PROPIO
    -------------------------------------------------------------------------- */
 [role="dialog"] nav ~ * {
     display: flex !important;
@@ -94,7 +94,7 @@ body, #root {
 }
 
 /* --------------------------------------------------------------------------
-   4. ANTIDEFORMACIÓN (BOTONES, LOGS Y PASTILLAS)
+   4. ANTIDEFORMACIÓN (BOTONES, LOGS Y PASTILLAS EN AJUSTES)
    -------------------------------------------------------------------------- */
 
 /* Forzar que los grupos de botones/pastillas bajen a la siguiente línea si no caben */
@@ -133,10 +133,110 @@ body, #root {
     overflow-wrap: anywhere !important; /* Solo corta palabras si es una ruta o ID extremadamente largo */
 }
 
-/* Reducir los iconos dentro de los botones */
+/* Reducir los iconos dentro de los botones de ajustes */
 [role="dialog"] svg {
     width: 14px !important;
     height: 14px !important;
     flex-shrink: 0 !important;
     margin-right: 4px !important;
+}
+
+/* ==========================================================================
+   5. REESTRUCTURACIÓN DE LA VISTA PRINCIPAL (MOBILE FIRST VISTA INICIO)
+   ========================================================================== */
+
+/* 5.1 ELIMINAR BARRA DE BÚSQUEDA Y LOGO */
+header[data-tauri-drag-region] > div:first-child,
+[data-testid="search-box"] {
+    display: none !important;
+}
+
+/* 5.2 SALVAR Y REUBICAR EL MODO OSCURO */
+/* Convertimos el TopBar en un marco fantasma solo para alojar los botones de la derecha */
+header[data-tauri-drag-region] {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    height: 56px !important; /* Coincidirá con la nueva barra horizontal */
+    background: transparent !important;
+    border: none !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    padding: 0 12px !important;
+    pointer-events: none !important; /* Evitamos que la capa fantasma bloquee los clicks de navegación */
+}
+
+/* Reactivamos los clicks exclusivamente en el botón de tema */
+header[data-tauri-drag-region] > div:last-child {
+    pointer-events: auto !important;
+}
+
+/* 5.3 ROTAR EL ESQUELETO DE LA APP (DE COLUMNAS A FILAS) */
+div:has(> main[data-testid="player-workspace-main"]) {
+    display: flex !important;
+    flex-direction: column !important; /* Convierte los paneles laterales en cabeceras/pies */
+    height: 100% !important;
+    width: 100% !important;
+}
+
+/* 5.4 BARRA LATERAL IZQUIERDA -> BARRA SUPERIOR */
+/* Forzamos al que era el panel izquierdo a comportarse como un encabezado superior */
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
+    width: 100% !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(128,128,128,0.2) !important;
+    padding: 0 !important;
+    z-index: 50 !important;
+}
+
+/* Ocultar botones de contraer/expandir panel y barras redimensionables de PC */
+[data-testid="sidebar-toggle-left"],
+[data-testid="sidebar-toggle-right"],
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.cursor-col-resize {
+    display: none !important;
+}
+
+/* 5.5 BOTONES DE NAVEGACIÓN HORIZONTALES Y SCROLLABLES */
+[data-testid="sidebar-navigation"] {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    align-items: center !important;
+    padding: 0 12px !important;
+    padding-right: 80px !important; /* Vital: Da espacio al final para no pisar el botón oscuro flotante */
+    gap: 12px !important;
+    width: 100% !important;
+    scrollbar-width: none !important; /* Firefox */
+}
+[data-testid="sidebar-navigation"]::-webkit-scrollbar {
+    display: none !important; /* Chrome/Safari */
+}
+
+/* Tamaño y formato de los botones de navegación */
+[data-testid="sidebar-navigation-item"] {
+    width: auto !important;
+    height: 40px !important;
+    padding: 0 16px !important;
+    flex-shrink: 0 !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+}
+
+/* Ocultar el texto de navegación: ¡Dejamos solo los iconos como si fuera una app nativa! */
+[data-testid="sidebar-navigation-item"] span.whitespace-nowrap {
+    display: none !important;
+}
+
+/* 5.6 CONTENEDOR PRINCIPAL FLUIDO */
+/* Garantiza que el reproductor no se colapse al rotar la interfaz */
+main[data-testid="player-workspace-main"] {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
