@@ -1,192 +1,243 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V14 (CORRECCIÓN ABSOLUTA DE LAYOUT)
+   PARCHE MÓVIL NUCLEAR PLAYER - V12 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
    ========================================================================== */
 
-/* 1. RESET Y PANTALLA COMPLETA TOTAL (STATUS BAR FIX) */
+/* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
 body, #root { 
     padding: 0 !important; 
     overflow: hidden !important; 
-    padding-top: env(safe-area-inset-top, 24px) !important; 
 }
 
+/* Atacar cualquier envoltorio/overlay de Radix UI para quitar márgenes ocultos */
 [data-state="open"], 
 [data-radix-popper-content-wrapper] { 
     padding: 0 !important; 
     margin: 0 !important; 
 }
 
+/* El diálogo a 100% de la pantalla, anclado físicamente a los bordes */
+[role="dialog"] {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+
+    width: 100vw !important; max-width: 100vw !important;
+    height: 100vh !important; max-height: 100vh !important;
+
+    margin: 0 !important; padding: 0 !important;
+    border-radius: 0 !important; border: none !important;
+    transform: none !important;
+
+    display: flex !important;
+    flex-direction: row !important; /* Lado a lado */
+    background-color: transparent !important; /* Mantiene el tema rosa intacto */
+}
+
+/* Si React usa un div intermedio secreto, lo forzamos a seguir la regla */
+[role="dialog"] > div:has(nav) {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important; 
+    height: 100% !important;
+}
+
+/* Ocultar la X de cerrar de PC */
+[role="dialog"] button[class*="absolute"] { display: none !important; }
+
 /* --------------------------------------------------------------------------
-   2. TOP BAR (BÚSQUEDA) FANTASMA - SOLO QUEDA EL MODO OSCURO
+   2. MENÚ LATERAL (IZQUIERDA) - ANCHO FIJO, NO DEFORMABLE
    -------------------------------------------------------------------------- */
+[role="dialog"] nav {
+    display: flex !important;
+    flex-direction: column !important;
+
+    width: 35% !important;
+    min-width: 120px !important;
+    max-width: 140px !important;
+    height: 100% !important; /* Altura fija */
+
+    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe que el menú se estreche */
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 12px 6px !important;
+    border-right: 1px solid rgba(0,0,0,0.1) !important;
+}
+
+/* Botones de las pestañas */
+[role="dialog"] nav button {
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    padding: 10px 8px !important;
+    margin-bottom: 4px !important;
+    font-size: 13px !important;
+    text-align: left !important;
+    white-space: normal !important; /* Aquí sí permitimos texto en dos líneas si es largo */
+}
+
+/* Ocultar versión/iconos del fondo del menú para ganar espacio */
+[role="dialog"] nav > div:last-child { display: none !important; }
+
+/* --------------------------------------------------------------------------
+   3. CONTENIDO (DERECHA) - ALTURA FIJA Y SCROLL PROPIO
+   -------------------------------------------------------------------------- */
+[role="dialog"] nav ~ * {
+    display: flex !important;
+    flex-direction: column !important;
+
+    flex: 1 1 auto !important; /* Toma todo el espacio sobrante de la pantalla */
+    width: 100% !important;
+    height: 100% !important; /* CRÍTICO: Altura fija igual a la pantalla */
+
+    overflow-y: auto !important; /* Si hay muchos logs, scrollea esta zona */
+    overflow-x: hidden !important; 
+    padding: 12px !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. ANTIDEFORMACIÓN (BOTONES, LOGS Y PASTILLAS)
+   -------------------------------------------------------------------------- */
+
+/* Forzar que los grupos de botones/pastillas bajen a la siguiente línea si no caben */
+[role="dialog"] nav ~ * div {
+    flex-wrap: wrap !important;
+}
+
+/* Proteger botones para que mantengan su forma original (Clear, Export, etc.) */
+[role="dialog"] nav ~ * button {
+    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe el aplastamiento */
+    width: max-content !important; /* Mide exactamente lo que ocupa su texto */
+    min-width: min-content !important;
+    height: auto !important;
+    min-height: 28px !important;
+    white-space: nowrap !important; /* El texto del botón NUNCA se corta */
+    padding: 4px 10px !important;
+    margin: 2px !important;
+    font-size: 12px !important;
+}
+
+/* Arreglar el buscador (Search logs...) para que sea flexible pero no se rompa */
+[role="dialog"] nav ~ * input[type="text"],
+[role="dialog"] nav ~ * input[placeholder*="Search"] {
+    width: 100% !important;
+    flex-shrink: 1 !important;
+    min-height: 32px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Impedir que las palabras se rompan letra por letra */
+[role="dialog"] p, 
+[role="dialog"] span, 
+[role="dialog"] label, 
+[role="dialog"] pre {
+    word-break: normal !important;
+    overflow-wrap: anywhere !important; /* Solo corta palabras si es una ruta o ID extremadamente largo */
+}
+
+/* Reducir los iconos dentro de los botones */
+[role="dialog"] svg {
+    width: 14px !important;
+    height: 14px !important;
+    flex-shrink: 0 !important;
+    margin-right: 4px !important;
+}
+
+/* ==========================================================================
+   NUEVOS AJUSTES (FASE 1): TOP BAR, LEFT SIDEBAR Y BOTTOM BAR
+   ========================================================================== */
+
+/* 5. ELIMINAR ELEMENTOS DE LA BARRA SUPERIOR (TOP BAR) SALVO MODO OSCURO */
 header[data-tauri-drag-region] {
     position: absolute !important;
-    top: env(safe-area-inset-top, 24px) !important;
-    right: 0 !important; left: 0 !important;
-    height: 56px !important; 
-    background: transparent !important; border: none !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    height: 56px !important;
+    background: transparent !important;
+    border: none !important;
     z-index: 1000 !important;
-    display: flex !important; justify-content: flex-end !important; align-items: center !important;
-    padding: 0 12px !important; pointer-events: none !important; 
+    pointer-events: none !important; /* No bloquear clicks de la barra de navegación que pondremos debajo */
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
 }
 header[data-tauri-drag-region] > div:first-child,
 [data-testid="search-box"] {
     display: none !important;
 }
+/* Activar eventos solo para el contenedor derecho (ajustes/tema) */
 header[data-tauri-drag-region] > div:last-child {
-    pointer-events: auto !important; /* Permitir click solo en ajustes/modo oscuro */
+    pointer-events: auto !important;
+}
+/* Ocultar botón de Jam QR, dejar solo el tema */
+header[data-tauri-drag-region] > div:last-child > :not(:last-child) {
+    display: none !important;
 }
 
-/* --------------------------------------------------------------------------
-   3. WORKSPACE CENTRAL (CONTENEDOR DE PANELES)
-   -------------------------------------------------------------------------- */
-/* Respetamos el grid externo pero cambiamos el interno para apilar barra izquierda y principal */
+/* 6. MOVER MENÚ LATERAL IZQUIERDO A LA PARTE SUPERIOR */
+/* Posicionamos la barra lateral de forma absoluta arriba para NO ROMPER el Grid */
 div:has(> main[data-testid="player-workspace-main"]) {
-    display: flex !important;
-    flex-direction: column !important; 
-    width: 100% !important; height: 100% !important;
     position: relative !important;
-    overflow: hidden !important;
 }
-
-main[data-testid="player-workspace-main"] {
-    flex: 1 1 auto !important;
-    width: 100% !important; height: 100% !important;
-    overflow-y: auto !important; overflow-x: hidden !important;
-}
-
-/* --------------------------------------------------------------------------
-   4. BARRA LATERAL IZQUIERDA -> AHORA ES LA BARRA SUPERIOR HORIZONTAL
-   -------------------------------------------------------------------------- */
 div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
-    width: 100% !important; max-width: 100% !important;
-    height: 56px !important; min-height: 56px !important;
-    flex-direction: row !important; 
-    border-right: none !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important;
-    padding: 0 !important; z-index: 10 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(128,128,128,0.2) !important;
+    z-index: 50 !important;
+    background-color: var(--background-secondary) !important;
 }
-
+/* Bajamos el contenido principal y la barra derecha para que no queden tapados por la nueva barra superior */
+main[data-testid="player-workspace-main"],
+div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
+    margin-top: 56px !important;
+    height: calc(100% - 56px) !important;
+}
+/* Ocultar botones de expandir panel y barra de resize */
 [data-testid="sidebar-toggle-left"],
 div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.cursor-col-resize {
     display: none !important;
 }
-
-div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1 {
-    display: flex !important; flex-direction: row !important;
-    overflow-x: auto !important; overflow-y: hidden !important; align-items: center !important;
-    padding: 0 12px !important; padding-right: 60px !important; 
+/* Poner los botones de navegación en horizontal y centrados */
+[data-testid="sidebar-navigation"] {
+    flex-direction: row !important;
+    align-items: center !important;
+    height: 100% !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 0 12px !important;
+    padding-right: 70px !important; /* Margen para no pisar el switch de modo oscuro */
     scrollbar-width: none !important;
 }
-div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1::-webkit-scrollbar { display: none !important; }
-
-[data-testid="sidebar-navigation"] {
-    flex-direction: row !important; gap: 8px !important; height: 100% !important; align-items: center !important;
+[data-testid="sidebar-navigation"]::-webkit-scrollbar {
+    display: none !important;
 }
 [data-testid="sidebar-navigation-item"] {
-    width: 40px !important; height: 40px !important; padding: 0 !important;
-    justify-content: center !important; flex-shrink: 0 !important; border-radius: 8px !important;
+    width: 40px !important;
+    height: 40px !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+    border-radius: 8px !important;
 }
-[data-testid="sidebar-navigation-item"] span.whitespace-nowrap { display: none !important; }
-
-/* --------------------------------------------------------------------------
-   5. BARRA LATERAL DERECHA (QUEUE) -> AHORA APARECE DESDE ABAJO
-   -------------------------------------------------------------------------- */
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
-    position: absolute !important;
-    bottom: 0 !important; left: 0 !important; right: 0 !important;
-    width: 100% !important; max-width: 100% !important;
-    border-left: none !important; border-top: 1px solid rgba(128,128,128,0.2) !important;
-    z-index: 40 !important;
-    box-shadow: 0 -4px 15px rgba(0,0,0,0.4) !important;
-    transition: height 0.3s ease !important;
-    background-color: var(--background-secondary) !important;
+/* Ocultar el texto de la barra, dejando solo los iconos */
+[data-testid="sidebar-navigation-item"] span.whitespace-nowrap {
+    display: none !important;
 }
 
-/* React pone width: 54px cuando se colapsa. Lo mapeamos a altura. */
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child[style*="width: 54px"] {
-    height: 48px !important; 
-}
-/* Cuando está abierto (width > 54px) */
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child:not([style*="width: 54px"]) {
-    height: 70vh !important;
-}
-
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child > div.cursor-col-resize { display: none !important; }
-
-/* Centrar y rotar el botón de abrir Queue */
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:first-child {
-    justify-content: center !important; width: 100% !important; margin-bottom: 0 !important; padding: 4px 0 !important;
-}
-[data-testid="sidebar-toggle-right"] {
-    transform: rotate(90deg) !important; margin: 0 auto !important;
-}
-
-/* --------------------------------------------------------------------------
-   6. REPRODUCTOR INFERIOR (BOTTOM BAR) - RESTAURADO Y AJUSTADO
-   -------------------------------------------------------------------------- */
-footer {
-    display: flex !important;
-    height: auto !important; min-height: 64px !important;
-    padding: 8px 12px !important; z-index: 50 !important;
-    border-top: 1px solid rgba(128,128,128,0.2) !important;
-}
-footer > div.grid {
-    display: grid !important;
-    grid-template-columns: auto 1fr auto !important;
-    gap: 8px !important; width: 100% !important;
-}
-
-/* Izquierda: Canción */
-footer > div.grid > div:nth-child(1) { max-width: 140px !important; }
-footer > div.grid > div:nth-child(1) [data-testid="player-now-playing-thumbnail"],
-footer > div.grid > div:nth-child(1) [data-testid="player-now-playing-placeholder"] {
-    width: 40px !important; height: 40px !important;
-}
-footer > div.grid > div:nth-child(1) [data-testid="now-playing-title"] { font-size: 12px !important; }
-
-/* Centro: Controles de reproducción (Movidos a la izquierda) */
+/* 7. AJUSTES DE LA BARRA INFERIOR */
+/* Mover el bloque central (shuffle a siguiente) un poco a la izquierda */
 footer > div.grid > div:nth-child(2) {
-    justify-self: flex-start !important; margin-left: 0 !important;
+    transform: translateX(-15px) !important;
 }
-footer > div.grid > div:nth-child(2) > div { gap: 2px !important; }
-
-/* Derecha: Volumen (Icono pegado) */
-footer > div.grid > div:nth-child(3) { justify-self: flex-end !important; }
-footer > div.grid > div:nth-child(3) > div { gap: 0px !important; }
-
-/* --------------------------------------------------------------------------
-   7. AJUSTES Y MODALES (INTACTO)
-   -------------------------------------------------------------------------- */
-[role="dialog"] {
-    position: fixed !important; top: env(safe-area-inset-top, 24px) !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-    width: 100vw !important; max-width: 100vw !important; height: calc(100vh - env(safe-area-inset-top, 24px)) !important; max-height: 100vh !important;
-    margin: 0 !important; padding: 0 !important; border-radius: 0 !important; border: none !important; transform: none !important;
-    display: flex !important; flex-direction: row !important; background-color: transparent !important; 
+/* Juntar el icono del volumen a la barra de volumen (eliminando el gap) */
+footer > div.grid > div:nth-child(3) > div {
+    gap: 0px !important;
 }
-[role="dialog"] > div:has(nav) { display: flex !important; flex-direction: row !important; width: 100% !important; height: 100% !important; }
-[role="dialog"] button[class*="absolute"] { display: none !important; }
-[role="dialog"] nav {
-    display: flex !important; flex-direction: column !important; width: 35% !important; min-width: 120px !important; max-width: 140px !important;
-    height: 100% !important; flex-shrink: 0 !important; overflow-y: auto !important; overflow-x: hidden !important;
-    padding: 12px 6px !important; border-right: 1px solid rgba(0,0,0,0.1) !important;
-}
-[role="dialog"] nav button {
-    width: 100% !important; flex-shrink: 0 !important; padding: 10px 8px !important; margin-bottom: 4px !important;
-    font-size: 13px !important; text-align: left !important; white-space: normal !important; 
-}
-[role="dialog"] nav > div:last-child { display: none !important; }
-[role="dialog"] nav ~ * {
-    display: flex !important; flex-direction: column !important; flex: 1 1 auto !important; width: 100% !important; height: 100% !important; 
-    overflow-y: auto !important; overflow-x: hidden !important; padding: 12px !important;
-}
-[role="dialog"] nav ~ * div { flex-wrap: wrap !important; }
-[role="dialog"] nav ~ * button {
-    flex-shrink: 0 !important; width: max-content !important; min-width: min-content !important; height: auto !important; min-height: 28px !important; 
-    white-space: nowrap !important; padding: 4px 10px !important; margin: 2px !important; font-size: 12px !important;
-}
-[role="dialog"] nav ~ * input[type="text"], [role="dialog"] nav ~ * input[placeholder*="Search"] {
-    width: 100% !important; flex-shrink: 1 !important; min-height: 32px !important; margin-bottom: 8px !important;
-}
-[role="dialog"] p, [role="dialog"] span, [role="dialog"] label, [role="dialog"] pre {
-    word-break: normal !important; overflow-wrap: anywhere !important; 
-}
-[role="dialog"] svg { width: 14px !important; height: 14px !important; flex-shrink: 0 !important; margin-right: 4px !important; }
