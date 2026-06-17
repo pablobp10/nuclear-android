@@ -1,243 +1,189 @@
-/* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V12 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
-   ========================================================================== */
+name: Build Android APK
 
-/* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
-body, #root { 
-    padding: 0 !important; 
-    overflow: hidden !important; 
-}
+on:
+  workflow_dispatch:
 
-/* Atacar cualquier envoltorio/overlay de Radix UI para quitar márgenes ocultos */
-[data-state="open"], 
-[data-radix-popper-content-wrapper] { 
-    padding: 0 !important; 
-    margin: 0 !important; 
-}
+permissions:
+  contents: write
 
-/* El diálogo a 100% de la pantalla, anclado físicamente a los bordes */
-[role="dialog"] {
-    position: fixed !important;
-    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-    width: 100vw !important; max-width: 100vw !important;
-    height: 100vh !important; max-height: 100vh !important;
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    margin: 0 !important; padding: 0 !important;
-    border-radius: 0 !important; border: none !important;
-    transform: none !important;
+    steps:
+      - name: Descargar el código fuente
+        uses: actions/checkout@v4
 
-    display: flex !important;
-    flex-direction: row !important; /* Lado a lado */
-    background-color: transparent !important; /* Mantiene el tema rosa intacto */
-}
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-/* Si React usa un div intermedio secreto, lo forzamos a seguir la regla */
-[role="dialog"] > div:has(nav) {
-    display: flex !important;
-    flex-direction: row !important;
-    width: 100% !important; 
-    height: 100% !important;
-}
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-/* Ocultar la X de cerrar de PC */
-[role="dialog"] button[class*="absolute"] { display: none !important; }
+      - name: Configurar Rust (SOLO AARCH64)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
 
-/* --------------------------------------------------------------------------
-   2. MENÚ LATERAL (IZQUIERDA) - ANCHO FIJO, NO DEFORMABLE
-   -------------------------------------------------------------------------- */
-[role="dialog"] nav {
-    display: flex !important;
-    flex-direction: column !important;
+      - name: Obtener directorio de caché de pnpm
+        id: pnpm-cache-dir
+        run: echo "STORE_PATH=$(npm config get cache)" >> $GITHUB_ENV
 
-    width: 35% !important;
-    min-width: 120px !important;
-    max-width: 140px !important;
-    height: 100% !important; /* Altura fija */
+      - name: Caché de módulos pnpm
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe que el menú se estreche */
+      - name: Caché de Rust y dependencias compiladas
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/player/src-tauri"
 
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding: 12px 6px !important;
-    border-right: 1px solid rgba(0,0,0,0.1) !important;
-}
+      - name: Instalar dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-/* Botones de las pestañas */
-[role="dialog"] nav button {
-    width: 100% !important;
-    flex-shrink: 0 !important;
-    padding: 10px 8px !important;
-    margin-bottom: 4px !important;
-    font-size: 13px !important;
-    text-align: left !important;
-    white-space: normal !important; /* Aquí sí permitimos texto en dos líneas si es largo */
-}
+      - name: Instalar pnpm y dependencias
+        run: |
+          npm install -g pnpm@10.33.4
+          pnpm install
 
-/* Ocultar versión/iconos del fondo del menú para ganar espacio */
-[role="dialog"] nav > div:last-child { display: none !important; }
+      - name: Crear script de parcheo blindado (patch.cjs)
+        run: |
+          cat << 'EOF' > patch.cjs
+          const fs = require("fs");
+          const path = require("path");
 
-/* --------------------------------------------------------------------------
-   3. CONTENIDO (DERECHA) - ALTURA FIJA Y SCROLL PROPIO
-   -------------------------------------------------------------------------- */
-[role="dialog"] nav ~ * {
-    display: flex !important;
-    flex-direction: column !important;
+          function overwriteSafe(filePath, modifierFunc) {
+              try {
+                  if (fs.existsSync(filePath)) {
+                      fs.chmodSync(filePath, 0o666);
+                      let content = fs.readFileSync(filePath, "utf8");
+                      content = modifierFunc(content);
+                      fs.writeFileSync(filePath, content, "utf8");
+                      console.log(`[EXITO] Parcheado: ${filePath}`);
+                  } else {
+                      console.warn(`[AVISO] Archivo no encontrado: ${filePath}`);
+                  }
+              } catch (e) {
+                  console.error(`[ERROR CRITICO] Fallo en ${filePath}:`, e);
+                  process.exit(1);
+              }
+          }
 
-    flex: 1 1 auto !important; /* Toma todo el espacio sobrante de la pantalla */
-    width: 100% !important;
-    height: 100% !important; /* CRÍTICO: Altura fija igual a la pantalla */
+          // 1. CARGO.TOML: Amputación estricta del verificador de plataforma JNI
+          overwriteSafe("./packages/player/src-tauri/Cargo.toml", (code) => {
+              let lines = code.split("\n").filter(line => 
+                  !line.includes("tauri-plugin-updater") &&
+                  !line.includes("tauri-plugin-process") &&
+                  !line.includes("tauri-plugin-window-state")
+              );
+              let result = lines.join("\n");
+              
+              // Buscamos cualquier declaración de reqwest (con o sin llaves) y la forzamos a WebPKI puro
+              result = result.replace(/reqwest\s*=\s*\{.*?\}/g, "");
+              result = result.replace(/^reqwest\s*=\s*"[^"]+"/gm, "");
+              
+              result = result.replace(
+                  /\[dependencies\]/,
+                  '[dependencies]\nreqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "json", "stream", "cookies"] }'
+              );
+              
+              // Optimizaciones de compilador
+              if (!result.includes("[profile.dev]")) {
+                  result += `\n\n[profile.dev]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
+              }
+              return result;
+          });
 
-    overflow-y: auto !important; /* Si hay muchos logs, scrollea esta zona */
-    overflow-x: hidden !important; 
-    padding: 12px !important;
-}
+          // 2. YTDLP_SETUP.RS: Cura para compilación cruzada
+          overwriteSafe("./packages/player/src-tauri/src/ytdlp_setup.rs", (code) => {
+              let res = code.replace(/fn release_filename\(\) -> &'static str \{[\s\S]*?fn binary_name/, "fn release_filename() -> &'static str { \"yt-dlp.zip\" }\n\nfn binary_name");
+              res = res.replace(/fn binary_name\(\) -> &'static str \{[\s\S]*?fn ytdlp_dir/, "fn binary_name() -> &'static str { \"yt-dlp\" }\n\nfn ytdlp_dir");
+              return res;
+          });
 
-/* --------------------------------------------------------------------------
-   4. ANTIDEFORMACIÓN (BOTONES, LOGS Y PASTILLAS)
-   -------------------------------------------------------------------------- */
+          // 3. LIB.RS: Limpieza de plugins de PC
+          overwriteSafe("./packages/player/src-tauri/src/lib.rs", (code) => {
+              let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
+              res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
+              res = res.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "/* desktop plugin removed */");
+              return res;
+          });
 
-/* Forzar que los grupos de botones/pastillas bajen a la siguiente línea si no caben */
-[role="dialog"] nav ~ * div {
-    flex-wrap: wrap !important;
-}
+          // 4. ESBUILD WASM: Corrección de ruta
+          overwriteSafe("./packages/player/src/services/plugins/pluginCompiler.ts", (code) => {
+              return code.replace(
+                /await es\.mod\.initialize\(\{[\s\S]*?wasmURL:\s*wasmUrl,[\s\S]*?worker:\s*false\s*\}\);/g,
+                `const fullWasmUrl = new URL(wasmUrl, window.location.origin).href;\n      await es.mod.initialize({ wasmURL: fullWasmUrl, worker: false });`
+              );
+          });
 
-/* Proteger botones para que mantengan su forma original (Clear, Export, etc.) */
-[role="dialog"] nav ~ * button {
-    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe el aplastamiento */
-    width: max-content !important; /* Mide exactamente lo que ocupa su texto */
-    min-width: min-content !important;
-    height: auto !important;
-    min-height: 28px !important;
-    white-space: nowrap !important; /* El texto del botón NUNCA se corta */
-    padding: 4px 10px !important;
-    margin: 2px !important;
-    font-size: 12px !important;
-}
+          // 5. CAPABILITIES: Permisos de FileSystem
+          const capsDir = "./packages/player/src-tauri/capabilities";
+          try {
+              if (fs.existsSync(capsDir)) {
+                  const almightyCap = {
+                      identifier: "android-almighty",
+                      windows: ["*"],
+                      permissions: [
+                        "core:window:allow-set-decorations", "core:window:allow-set-size", "core:window:allow-maximize", "core:window:allow-minimize", "core:window:allow-close", "core:window:allow-hide", "core:window:allow-show", "fs:allow-read", "fs:allow-write", "fs:allow-exists", "fs:allow-stat", "fs:allow-read-dir", "fs:allow-mkdir", "fs:allow-remove", "fs:scope-appdata-recursive"
+                      ]
+                  };
+                  fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
+              }
+          } catch(e) { console.error("Error en capabilities:", e); }
+          EOF
 
-/* Arreglar el buscador (Search logs...) para que sea flexible pero no se rompa */
-[role="dialog"] nav ~ * input[type="text"],
-[role="dialog"] nav ~ * input[placeholder*="Search"] {
-    width: 100% !important;
-    flex-shrink: 1 !important;
-    min-height: 32px !important;
-    margin-bottom: 8px !important;
-}
+      - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
+        run: |
+          if [ -d "android_ui" ]; then
+            cp -a android_ui/. ./
+            echo "✅ Archivos estáticos aplicados."
+          else
+            echo "❌ Carpeta android_ui no encontrada, ignorando..."
+          fi
+          
+      - name: Compilar Frontend (React)
+        run: |
+          cd packages/player
+          pnpm run build:frontend
 
-/* Impedir que las palabras se rompan letra por letra */
-[role="dialog"] p, 
-[role="dialog"] span, 
-[role="dialog"] label, 
-[role="dialog"] pre {
-    word-break: normal !important;
-    overflow-wrap: anywhere !important; /* Solo corta palabras si es una ruta o ID extremadamente largo */
-}
+      - name: Inicializar Proyecto Android (Generar Rutas)
+        run: |
+          cd packages/player
+          rm -rf src-tauri/gen/android
+          npx tauri android init
+          cp public/logo-icon-on-white.png src-tauri/icons/icon.png
+          cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
+          npx tauri icon public/logo-icon-on-white.png
 
-/* Reducir los iconos dentro de los botones */
-[role="dialog"] svg {
-    width: 14px !important;
-    height: 14px !important;
-    flex-shrink: 0 !important;
-    margin-right: 4px !important;
-}
+      - name: 🛠️ Ejecutar Parches de Compatibilidad
+        run: node patch.cjs
 
-/* ==========================================================================
-   NUEVOS AJUSTES (FASE 1): TOP BAR, LEFT SIDEBAR Y BOTTOM BAR
-   ========================================================================== */
+      - name: Construir y Compilar APK (Firmado Automático + Optimizado)
+        run: |
+          cd packages/player
+          npx tauri android build --debug --apk --target aarch64
 
-/* 5. ELIMINAR ELEMENTOS DE LA BARRA SUPERIOR (TOP BAR) SALVO MODO OSCURO */
-header[data-tauri-drag-region] {
-    position: absolute !important;
-    top: 0 !important;
-    right: 0 !important;
-    left: 0 !important;
-    height: 56px !important;
-    background: transparent !important;
-    border: none !important;
-    z-index: 1000 !important;
-    pointer-events: none !important; /* No bloquear clicks de la barra de navegación que pondremos debajo */
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-}
-header[data-tauri-drag-region] > div:first-child,
-[data-testid="search-box"] {
-    display: none !important;
-}
-/* Activar eventos solo para el contenedor derecho (ajustes/tema) */
-header[data-tauri-drag-region] > div:last-child {
-    pointer-events: auto !important;
-}
-/* Ocultar botón de Jam QR, dejar solo el tema */
-header[data-tauri-drag-region] > div:last-child > :not(:last-child) {
-    display: none !important;
-}
-
-/* 6. MOVER MENÚ LATERAL IZQUIERDO A LA PARTE SUPERIOR */
-/* Posicionamos la barra lateral de forma absoluta arriba para NO ROMPER el Grid */
-div:has(> main[data-testid="player-workspace-main"]) {
-    position: relative !important;
-}
-div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 56px !important;
-    min-height: 56px !important;
-    flex-direction: row !important;
-    border-right: none !important;
-    border-bottom: 1px solid rgba(128,128,128,0.2) !important;
-    z-index: 50 !important;
-    background-color: var(--background-secondary) !important;
-}
-/* Bajamos el contenido principal y la barra derecha para que no queden tapados por la nueva barra superior */
-main[data-testid="player-workspace-main"],
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
-    margin-top: 56px !important;
-    height: calc(100% - 56px) !important;
-}
-/* Ocultar botones de expandir panel y barra de resize */
-[data-testid="sidebar-toggle-left"],
-div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.cursor-col-resize {
-    display: none !important;
-}
-/* Poner los botones de navegación en horizontal y centrados */
-[data-testid="sidebar-navigation"] {
-    flex-direction: row !important;
-    align-items: center !important;
-    height: 100% !important;
-    gap: 8px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    padding: 0 12px !important;
-    padding-right: 70px !important; /* Margen para no pisar el switch de modo oscuro */
-    scrollbar-width: none !important;
-}
-[data-testid="sidebar-navigation"]::-webkit-scrollbar {
-    display: none !important;
-}
-[data-testid="sidebar-navigation-item"] {
-    width: 40px !important;
-    height: 40px !important;
-    justify-content: center !important;
-    padding: 0 !important;
-    flex-shrink: 0 !important;
-    border-radius: 8px !important;
-}
-/* Ocultar el texto de la barra, dejando solo los iconos */
-[data-testid="sidebar-navigation-item"] span.whitespace-nowrap {
-    display: none !important;
-}
-
-/* 7. AJUSTES DE LA BARRA INFERIOR */
-/* Mover el bloque central (shuffle a siguiente) un poco a la izquierda */
-footer > div.grid > div:nth-child(2) {
-    transform: translateX(-15px) !important;
-}
-/* Juntar el icono del volumen a la barra de volumen (eliminando el gap) */
-footer > div.grid > div:nth-child(3) > div {
-    gap: 0px !important;
-}
+      - name: "🚀 Bypass: Empaquetar como GitHub Release"
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Nuclear Android Build (Nightly)"
+          tag_name: "build-${{ github.run_id }}"
+          files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          body: "APK compilado, purgado de pánicos de Rust y optimizado."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
