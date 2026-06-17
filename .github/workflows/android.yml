@@ -83,7 +83,7 @@ jobs:
               }
           }
 
-          // 1. CARGO.TOML: Inyectar tauri-plugin-http para resolver el pánico JNI de Android
+          // 1. CARGO.TOML: Amputación estricta del verificador de plataforma JNI
           overwriteSafe("./packages/player/src-tauri/Cargo.toml", (code) => {
               let lines = code.split("\n").filter(line => 
                   !line.includes("tauri-plugin-updater") &&
@@ -92,44 +92,38 @@ jobs:
               );
               let result = lines.join("\n");
               
-              // Inyectamos la dependencia HTTP oficial de Tauri
-              if (!result.includes("tauri-plugin-http")) {
-                  result = result.replace(
-                      /\[dependencies\]/,
-                      "[dependencies]\ntauri-plugin-http = \"2\""
-                  );
-              }
+              // Buscamos cualquier declaración de reqwest (con o sin llaves) y la forzamos a WebPKI puro
+              result = result.replace(/reqwest\s*=\s*\{.*?\}/g, "");
+              result = result.replace(/^reqwest\s*=\s*"[^"]+"/gm, "");
               
+              result = result.replace(
+                  /\[dependencies\]/,
+                  '[dependencies]\nreqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "json", "stream", "cookies"] }'
+              );
+              
+              // Optimizaciones de compilador
               if (!result.includes("[profile.dev]")) {
                   result += `\n\n[profile.dev]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
               }
               return result;
           });
 
-          // 2. YTDLP_SETUP.RS: Cura para el error E0308
+          // 2. YTDLP_SETUP.RS: Cura para compilación cruzada
           overwriteSafe("./packages/player/src-tauri/src/ytdlp_setup.rs", (code) => {
               let res = code.replace(/fn release_filename\(\) -> &'static str \{[\s\S]*?fn binary_name/, "fn release_filename() -> &'static str { \"yt-dlp.zip\" }\n\nfn binary_name");
               res = res.replace(/fn binary_name\(\) -> &'static str \{[\s\S]*?fn ytdlp_dir/, "fn binary_name() -> &'static str { \"yt-dlp\" }\n\nfn ytdlp_dir");
               return res;
           });
 
-          // 3. LIB.RS: Limpieza e inicialización del hook JNI global
+          // 3. LIB.RS: Limpieza de plugins de PC
           overwriteSafe("./packages/player/src-tauri/src/lib.rs", (code) => {
-              let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "");
-              res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "");
-              res = res.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "");
-              
-              // Inyectamos la inicialización que evita el SIGABRT
-              if (!res.includes("tauri_plugin_http::init()")) {
-                  res = res.replace(
-                      /tauri::Builder::default\(\)/,
-                      "tauri::Builder::default().plugin(tauri_plugin_http::init())"
-                  );
-              }
+              let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
+              res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
+              res = res.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "/* desktop plugin removed */");
               return res;
           });
 
-          // 4. ESBUILD WASM: Corrección de ruta del compilador
+          // 4. ESBUILD WASM: Corrección de ruta
           overwriteSafe("./packages/player/src/services/plugins/pluginCompiler.ts", (code) => {
               return code.replace(
                 /await es\.mod\.initialize\(\{[\s\S]*?wasmURL:\s*wasmUrl,[\s\S]*?worker:\s*false\s*\}\);/g,
@@ -137,7 +131,7 @@ jobs:
               );
           });
 
-          // 5. CAPABILITIES: Permisos absolutos para evitar bloqueos del FileSystem
+          // 5. CAPABILITIES: Permisos de FileSystem
           const capsDir = "./packages/player/src-tauri/capabilities";
           try {
               if (fs.existsSync(capsDir)) {
@@ -190,6 +184,6 @@ jobs:
           name: "Nuclear Android Build (Nightly)"
           tag_name: "build-${{ github.run_id }}"
           files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          body: "APK compilado, con puente JNI nativo inyectado y optimizado."
+          body: "APK compilado, purgado de pánicos de Rust y optimizado."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
