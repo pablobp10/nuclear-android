@@ -83,7 +83,7 @@ jobs:
               }
           }
 
-          // 1. CARGO.TOML: Limpieza de plugins de PC y Optimizaciones extremas LTO
+          // 1. CARGO.TOML: Inyectar tauri-plugin-http para resolver el pánico JNI de Android
           overwriteSafe("./packages/player/src-tauri/Cargo.toml", (code) => {
               let lines = code.split("\n").filter(line => 
                   !line.includes("tauri-plugin-updater") &&
@@ -92,7 +92,13 @@ jobs:
               );
               let result = lines.join("\n");
               
-              // SE HA ELIMINADO EL HACK DE REQWEST QUE CAUSABA EL CRASH (SIGABRT)
+              // Inyectamos la dependencia HTTP oficial de Tauri
+              if (!result.includes("tauri-plugin-http")) {
+                  result = result.replace(
+                      /\[dependencies\]/,
+                      "[dependencies]\ntauri-plugin-http = \"2\""
+                  );
+              }
               
               if (!result.includes("[profile.dev]")) {
                   result += `\n\n[profile.dev]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
@@ -107,11 +113,19 @@ jobs:
               return res;
           });
 
-          // 3. LIB.RS: Limpieza de código muerto de escritorio
+          // 3. LIB.RS: Limpieza e inicialización del hook JNI global
           overwriteSafe("./packages/player/src-tauri/src/lib.rs", (code) => {
-              let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
-              res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
-              res = res.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "/* desktop plugin removed */");
+              let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "");
+              res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "");
+              res = res.replace(/\.plugin\(tauri_plugin_process::init\(\)\)/g, "");
+              
+              // Inyectamos la inicialización que evita el SIGABRT
+              if (!res.includes("tauri_plugin_http::init()")) {
+                  res = res.replace(
+                      /tauri::Builder::default\(\)/,
+                      "tauri::Builder::default().plugin(tauri_plugin_http::init())"
+                  );
+              }
               return res;
           });
 
@@ -176,6 +190,6 @@ jobs:
           name: "Nuclear Android Build (Nightly)"
           tag_name: "build-${{ github.run_id }}"
           files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          body: "APK compilado, purgado de pánicos de Rust y optimizado automáticamente."
+          body: "APK compilado, con puente JNI nativo inyectado y optimizado."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
