@@ -83,7 +83,7 @@ jobs:
               }
           }
 
-          // 1. CARGO.TOML: Inyectar certificados WebPKI integrados para evitar el pánico JNI de Android
+          // 1. CARGO.TOML: Limpieza de plugins de PC y Optimizaciones extremas LTO
           overwriteSafe("./packages/player/src-tauri/Cargo.toml", (code) => {
               let lines = code.split("\n").filter(line => 
                   !line.includes("tauri-plugin-updater") &&
@@ -92,11 +92,7 @@ jobs:
               );
               let result = lines.join("\n");
               
-              // Sustitución clave: Usamos 'webpki-roots' en lugar de 'rustls-native-certs'
-              result = result.replace(
-                  /reqwest = \{ version = "0.13", features = \["json", "cookies", "stream"\] \}/g, 
-                  'reqwest = { version = "0.13", default-features = false, features = ["json", "cookies", "stream", "rustls", "webpki-roots"] }'
-              );
+              // SE HA ELIMINADO EL HACK DE REQWEST QUE CAUSABA EL CRASH (SIGABRT)
               
               if (!result.includes("[profile.dev]")) {
                   result += `\n\n[profile.dev]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
@@ -104,14 +100,14 @@ jobs:
               return result;
           });
 
-          // 2. YTDLP_SETUP.RS: Cura para compilación cruzada
+          // 2. YTDLP_SETUP.RS: Cura para el error E0308
           overwriteSafe("./packages/player/src-tauri/src/ytdlp_setup.rs", (code) => {
               let res = code.replace(/fn release_filename\(\) -> &'static str \{[\s\S]*?fn binary_name/, "fn release_filename() -> &'static str { \"yt-dlp.zip\" }\n\nfn binary_name");
               res = res.replace(/fn binary_name\(\) -> &'static str \{[\s\S]*?fn ytdlp_dir/, "fn binary_name() -> &'static str { \"yt-dlp\" }\n\nfn ytdlp_dir");
               return res;
           });
 
-          // 3. LIB.RS: Limpieza de código muerto
+          // 3. LIB.RS: Limpieza de código muerto de escritorio
           overwriteSafe("./packages/player/src-tauri/src/lib.rs", (code) => {
               let res = code.replace(/\.plugin\(tauri_plugin_window_state::Builder::default\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
               res = res.replace(/\.plugin\(tauri_plugin_updater::Builder::new\(\)\.build\(\)\)/g, "/* desktop plugin removed */");
@@ -119,7 +115,7 @@ jobs:
               return res;
           });
 
-          // 4. ESBUILD WASM: Corrección de ruta
+          // 4. ESBUILD WASM: Corrección de ruta del compilador
           overwriteSafe("./packages/player/src/services/plugins/pluginCompiler.ts", (code) => {
               return code.replace(
                 /await es\.mod\.initialize\(\{[\s\S]*?wasmURL:\s*wasmUrl,[\s\S]*?worker:\s*false\s*\}\);/g,
@@ -127,7 +123,7 @@ jobs:
               );
           });
 
-          // 5. CAPABILITIES: Permisos de FileSystem
+          // 5. CAPABILITIES: Permisos absolutos para evitar bloqueos del FileSystem
           const capsDir = "./packages/player/src-tauri/capabilities";
           try {
               if (fs.existsSync(capsDir)) {
@@ -180,6 +176,6 @@ jobs:
           name: "Nuclear Android Build (Nightly)"
           tag_name: "build-${{ github.run_id }}"
           files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          body: "APK compilado, firmado y optimizado automáticamente."
+          body: "APK compilado, purgado de pánicos de Rust y optimizado automáticamente."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
