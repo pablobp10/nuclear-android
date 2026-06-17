@@ -175,8 +175,12 @@ jobs:
           # Rust usará el [profile.dev] ultra-optimizado que le inyectamos.
           npx tauri android build --debug --apk --target aarch64
 
-      - name: Subir APK final
-        uses: actions/upload-artifact@v4
+      - name: "🚀 Bypass: Empaquetar como GitHub Release"
+        uses: softprops/action-gh-release@v2
         with:
-          name: Nuclear-Player-APK
-          path: packages/player/src-tauri/gen/android/**/*.apk
+          name: "Nuclear Android Build (Nightly)"
+          tag_name: "build-${{ github.run_id }}"
+          files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          body: "APK compilado y firmado automáticamente por GitHub Actions."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
