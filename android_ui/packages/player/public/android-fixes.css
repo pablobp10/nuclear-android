@@ -136,9 +136,9 @@ header[data-tauri-drag-region] {
     align-items: center !important;
     
     /* Restauramos TU cálculo perfecto para esquivar la cámara */
-    padding-top: max(calc(env(safe-area-inset-top) + 1px), 45px) !important;
+    padding-top: max(calc(env(safe-area-inset-top) + 1px), 30px) !important;
     /* Reducimos el padding inferior a la mitad para que no quede tan despegado */
-    padding-bottom: 8px !important; 
+    padding-bottom: 4px !important; 
     padding-left: 12px !important;
     padding-right: 12px !important;
     height: auto !important;
