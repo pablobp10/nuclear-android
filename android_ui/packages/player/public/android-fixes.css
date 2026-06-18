@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V17.1 (AJUSTES FLOTANTES Y Z-INDEX CORREGIDO)
+   PARCHE MÓVIL NUCLEAR PLAYER - V18 (AJUSTES TARJETA Y Z-INDEX DEFINITIVO)
    ========================================================================== */
 
 /* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
@@ -15,47 +15,54 @@ body, #root {
     margin: 0 !important; 
 }
 
-/* El diálogo a 95% de ancho y 75% de alto, centrado físicamente en la pantalla */
+/* ==========================================================================
+   2. MENÚ DE AJUSTES (CONTENEDOR Y TARJETA FLOTANTE)
+   ========================================================================== */
+/* El contenedor a 100% de la pantalla (Mantiene el fondo gris oscuro de Radix intacto) */
 [role="dialog"] {
     position: fixed !important;
-    
-    /* Truco maestro de centrado en pantalla */
-    top: 50% !important; 
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
 
-    /* Dimensiones controladas */
-    width: 95vw !important; 
-    max-width: 95vw !important;
-    height: 75vh !important;
-    max-height: 85vh !important;
+    width: 100vw !important; max-width: 100vw !important;
+    height: 100vh !important; max-height: 100vh !important;
 
-    margin: 0 !important; 
-    padding: 0 !important;
-    
-    /* Bordes de la ventana */
-    border-radius: 16px !important; 
-    border: 2px solid var(--border) !important;
-    overflow: hidden !important; 
+    margin: 0 !important; padding: 0 !important;
+    border-radius: 0 !important; border: none !important;
+    transform: none !important;
 
+    /* Lo hacemos Flex y centramos mágicamente su contenido (la tarjeta) al medio exacto */
     display: flex !important;
-    flex-direction: row !important; /* Lado a lado */
-    background-color: transparent !important; /* Mantiene el tema rosa intacto */
+    justify-content: center !important;
+    align-items: center !important;
+    
+    background-color: transparent !important; 
 }
 
-/* Si React usa un div intermedio secreto, lo forzamos a seguir la regla */
+/* EL MENÚ DE AJUSTES REAL (Tarjeta flotante al 95% de ancho y 75% de alto) */
 [role="dialog"] > div:has(nav) {
     display: flex !important;
     flex-direction: row !important;
-    width: 100% !important; 
-    height: 100% !important;
+    
+    /* Dimensiones de la ventana flotante */
+    width: 95vw !important; 
+    max-width: 95vw !important;
+    height: 75vh !important; 
+    max-height: 85vh !important;
+
+    /* Estética de ventana nativa con bordes */
+    border-radius: 16px !important; 
+    border: 2px solid var(--border) !important;
+    overflow: hidden !important; 
+    
+    /* Le inyectamos la variable del fondo oscuro nativo por si hereda transparencia */
+    background-color: var(--background-secondary) !important;
 }
 
 /* Ocultar la X de cerrar de PC */
 [role="dialog"] button[class*="absolute"] { display: none !important; }
 
 /* --------------------------------------------------------------------------
-   2. MENÚ LATERAL (IZQUIERDA) - ANCHO FIJO, NO DEFORMABLE
+   MENÚ LATERAL DENTRO DE LOS AJUSTES - ANCHO FIJO
    -------------------------------------------------------------------------- */
 [role="dialog"] nav {
     display: flex !important;
@@ -90,9 +97,8 @@ body, #root {
 
 
 /* --------------------------------------------------------------------------
-   4. ANTIDEFORMACIÓN (BOTONES, LOGS Y PASTILLAS)
+   ANTIDEFORMACIÓN DEL CONTENIDO DE LOS AJUSTES
    -------------------------------------------------------------------------- */
-
 /* Forzar que los grupos de botones/pastillas bajen a la siguiente línea si no caben */
 [role="dialog"] nav ~ * div {
     flex-wrap: wrap !important;
@@ -167,7 +173,8 @@ header[data-tauri-drag-region] > div:last-child {
     position: fixed !important;
     bottom: 85px !important; /* Altura de la Bottom Bar (64) + espacio de aire */
     left: 8px !important;
-    z-index: 45 !important; /* Se oculta bajo el modal de ajustes (z-index: 50) */
+    /* Z-INDEX CORREGIDO: 10 garantiza que quede por debajo del fondo gris de los modales */
+    z-index: 10 !important; 
     display: flex !important;
     flex-direction: column !important; /* Apilar QR y Tema verticalmente */
     align-items: center !important;
@@ -179,8 +186,9 @@ div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.fle
     padding-bottom: 100px !important;
 }
 
+
 /* ==========================================================================
-   6. REPRODUCTOR INFERIOR (BOTTOM BAR)
+   4. REPRODUCTOR INFERIOR (BOTTOM BAR)
    ========================================================================== */
 /* Controles centrales (Shuffle a Next) movidos a la izquierda */
 footer > div.grid > div:nth-child(2) {
@@ -195,7 +203,7 @@ footer > div.grid > div:nth-child(3) button {
 
 
 /* ==========================================================================
-   7. BARRA LATERAL DERECHA (QUEUE DESDE ABAJO)
+   5. BARRA LATERAL DERECHA (QUEUE DESDE ABAJO)
    ========================================================================== */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     position: fixed !important;
@@ -207,7 +215,7 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     border-left: none !important; 
     border-top: 2px solid var(--border) !important;
     background-color: var(--background-secondary) !important;
-    z-index: 40 !important; /* Por debajo de la capa de modales */
+    z-index: 40 !important; /* Por debajo de la capa de modales de Radix */
     transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     overflow: visible !important; /* CRÍTICO: Permite que el botón se descuelgue por debajo */
 }
@@ -228,7 +236,7 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child > div.curs
 
 
 /* ==========================================================================
-   8. MOVER EL BOTÓN DE LA COLA A LA BARRA INFERIOR (ZONA DEL ALTAVOZ)
+   6. MOVER EL BOTÓN DE LA COLA A LA BARRA INFERIOR (ZONA DEL ALTAVOZ)
    ========================================================================== */
 /* Sacamos el contenedor del botón fuera del panel de la Queue y lo bajamos a la Bottom Bar */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:first-child {
@@ -241,7 +249,7 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:fir
     padding: 0 !important;
     justify-content: center !important;
     align-items: center !important;
-    z-index: 45 !important; /* Se oculta bajo modales (50) */
+    z-index: 40 !important; /* Igual que el panel de la Queue, por debajo de modales */
 }
 [data-testid="sidebar-toggle-right"] {
     transform: rotate(-90deg) !important; /* Flecha mirando hacia arriba */
