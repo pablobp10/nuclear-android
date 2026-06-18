@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V16.2 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
+   PARCHE MÓVIL NUCLEAR PLAYER - V16.3 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
    ========================================================================== */
 
 /* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
@@ -131,13 +131,16 @@ body, #root {
    3. BARRA SUPERIOR (TOP BAR) - ELIMINAR BÚSQUEDA Y EVITAR NOTCH
    ========================================================================== */
 header[data-tauri-drag-region] {
-    /* Desactivamos el Grid original de PC para poder alinear los botones a la derecha */
     display: flex !important;
     justify-content: flex-end !important;
     align-items: center !important;
     
-    /* Quitamos el padding-top excesivo (el body ya lo tiene) y damos padding inferior para separar del dashboard */
-    padding: 8px 12px 16px 12px !important; 
+    /* Restauramos TU cálculo perfecto para esquivar la cámara */
+    padding-top: max(calc(env(safe-area-inset-top) + 1px), 30px) !important;
+    /* Reducimos el padding inferior a la mitad para que no quede tan despegado */
+    padding-bottom: 8px !important; 
+    padding-left: 12px !important;
+    padding-right: 12px !important;
     height: auto !important;
 }
 
@@ -145,7 +148,6 @@ header[data-tauri-drag-region] > div:first-child,
 [data-testid="search-box"] {
     display: none !important; /* Oculta búsqueda y logo */
 }
-
 
 /* ==========================================================================
    6. REPRODUCTOR INFERIOR (BOTTOM BAR)
