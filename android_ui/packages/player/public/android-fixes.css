@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V16.3 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
+   PARCHE MÓVIL NUCLEAR PLAYER - V17 (SIN TOP BAR, CONTROLES A LA IZQUIERDA)
    ========================================================================== */
 
 /* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
@@ -128,25 +128,44 @@ body, #root {
 
 
 /* ==========================================================================
-   3. BARRA SUPERIOR (TOP BAR) - ELIMINAR BÚSQUEDA Y EVITAR NOTCH
+   3. BARRA SUPERIOR (ELIMINADA) Y ELEMENTOS MOVIDOS A LA IZQUIERDA
    ========================================================================== */
-header[data-tauri-drag-region] {
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-    
-    /* Restauramos TU cálculo perfecto para esquivar la cámara */
-    padding-top: max(calc(env(safe-area-inset-top) + 1px), 25px) !important;
-    /* Reducimos el padding inferior a la mitad para que no quede tan despegado */
-    padding-bottom: 4px !important; 
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    height: auto !important;
+/* Dar espacio al área de trabajo para que no choque con la cámara (notch) al quitar la Top Bar */
+div:has(> main[data-testid="player-workspace-main"]) {
+    padding-top: max(calc(env(safe-area-inset-top) + 4px), 24px) !important;
 }
 
+/* Colapsamos y hacemos invisible el fondo de la Top Bar */
+header[data-tauri-drag-region] {
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    overflow: visible !important; /* CRÍTICO: Permite que los botones escapen de la altura 0 */
+}
+
+/* Ocultamos búsqueda y logo */
 header[data-tauri-drag-region] > div:first-child,
 [data-testid="search-box"] {
-    display: none !important; /* Oculta búsqueda y logo */
+    display: none !important; 
+}
+
+/* Arrancamos los botones (QR y Tema) y los pegamos fijos en la barra izquierda */
+header[data-tauri-drag-region] > div:last-child {
+    position: fixed !important;
+    bottom: 85px !important; /* Altura de la Bottom Bar (64) + espacio de aire */
+    left: 8px !important;
+    z-index: 3000 !important;
+    display: flex !important;
+    flex-direction: column !important; /* Apilar QR y Tema verticalmente */
+    align-items: center !important;
+    gap: 16px !important;
+}
+
+/* Le damos espacio inferior a la barra lateral izquierda para que su contenido no quede tapado por estos botones */
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1 {
+    padding-bottom: 100px !important;
 }
 
 /* ==========================================================================
@@ -175,7 +194,7 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     width: 100vw !important; 
     max-width: 100vw !important;
     border-left: none !important; 
-    border-top: 1px solid var(--border) !important;
+    border-top: 2px solid var(--border) !important;
     background-color: var(--background-secondary) !important;
     z-index: 1000 !important;
     transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
