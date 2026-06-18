@@ -1,272 +1,231 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V12 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
+   PARCHE MÓVIL NUCLEAR PLAYER - V15 (INYECCIÓN PURA, SIN ROMPER GRID)
    ========================================================================== */
 
-/* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
+/* 1. RESET BÁSICO */
 body, #root { 
     padding: 0 !important; 
     overflow: hidden !important; 
-    padding-top: env(safe-area-inset-top, 24px) !important;
 }
 
-/* Atacar cualquier envoltorio/overlay de Radix UI para quitar márgenes ocultos */
+/* Modales y envoltorios de Radix */
 [data-state="open"], 
 [data-radix-popper-content-wrapper] { 
     padding: 0 !important; 
     margin: 0 !important; 
 }
 
-/* El diálogo a 100% de la pantalla, anclado físicamente a los bordes */
+/* ==========================================================================
+   2. AJUSTES ORIGINALES DEL MODAL (INTACTOS, TU V12)
+   ========================================================================== */
 [role="dialog"] {
     position: fixed !important;
-    top: env(safe-area-inset-top, 24px) !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
     width: 100vw !important; max-width: 100vw !important;
-    height: calc(100vh - env(safe-area-inset-top, 24px)) !important; max-height: 100vh !important;
-
+    height: 100vh !important; max-height: 100vh !important;
     margin: 0 !important; padding: 0 !important;
     border-radius: 0 !important; border: none !important;
     transform: none !important;
-
-    display: flex !important;
-    flex-direction: row !important; /* Lado a lado */
-    background-color: transparent !important; /* Mantiene el tema rosa intacto */
+    display: flex !important; flex-direction: row !important;
+    background-color: transparent !important; 
 }
-
-/* Si React usa un div intermedio secreto, lo forzamos a seguir la regla */
 [role="dialog"] > div:has(nav) {
-    display: flex !important;
-    flex-direction: row !important;
-    width: 100% !important; 
-    height: 100% !important;
+    display: flex !important; flex-direction: row !important;
+    width: 100% !important; height: 100% !important;
 }
-
-/* Ocultar la X de cerrar de PC */
 [role="dialog"] button[class*="absolute"] { display: none !important; }
-
-/* --------------------------------------------------------------------------
-   2. MENÚ LATERAL (IZQUIERDA) - ANCHO FIJO, NO DEFORMABLE
-   -------------------------------------------------------------------------- */
 [role="dialog"] nav {
-    display: flex !important;
-    flex-direction: column !important;
-
-    width: 35% !important;
-    min-width: 120px !important;
-    max-width: 140px !important;
-    height: 100% !important; /* Altura fija */
-
-    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe que el menú se estreche */
-
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding: 12px 6px !important;
-    border-right: 1px solid rgba(0,0,0,0.1) !important;
+    display: flex !important; flex-direction: column !important;
+    width: 35% !important; min-width: 120px !important; max-width: 140px !important;
+    height: 100% !important; flex-shrink: 0 !important;
+    overflow-y: auto !important; overflow-x: hidden !important;
+    padding: 12px 6px !important; border-right: 1px solid rgba(0,0,0,0.1) !important;
 }
-
-/* Botones de las pestañas */
 [role="dialog"] nav button {
-    width: 100% !important;
-    flex-shrink: 0 !important;
-    padding: 10px 8px !important;
-    margin-bottom: 4px !important;
-    font-size: 13px !important;
-    text-align: left !important;
-    white-space: normal !important; /* Aquí sí permitimos texto en dos líneas si es largo */
+    width: 100% !important; flex-shrink: 0 !important;
+    padding: 10px 8px !important; margin-bottom: 4px !important;
+    font-size: 13px !important; text-align: left !important; white-space: normal !important; 
 }
-
-/* Ocultar versión/iconos del fondo del menú para ganar espacio */
 [role="dialog"] nav > div:last-child { display: none !important; }
-
-/* --------------------------------------------------------------------------
-   3. CONTENIDO (DERECHA) - ALTURA FIJA Y SCROLL PROPIO
-   -------------------------------------------------------------------------- */
 [role="dialog"] nav ~ * {
-    display: flex !important;
-    flex-direction: column !important;
-
-    flex: 1 1 auto !important; /* Toma todo el espacio sobrante de la pantalla */
-    width: 100% !important;
-    height: 100% !important; /* CRÍTICO: Altura fija igual a la pantalla */
-
-    overflow-y: auto !important; /* Si hay muchos logs, scrollea esta zona */
-    overflow-x: hidden !important; 
-    padding: 12px !important;
+    display: flex !important; flex-direction: column !important;
+    flex: 1 1 auto !important; width: 100% !important; height: 100% !important; 
+    overflow-y: auto !important; overflow-x: hidden !important; padding: 12px !important;
 }
-
-/* --------------------------------------------------------------------------
-   4. ANTIDEFORMACIÓN (BOTONES, LOGS Y PASTILLAS)
-   -------------------------------------------------------------------------- */
-
-/* Forzar que los grupos de botones/pastillas bajen a la siguiente línea si no caben */
-[role="dialog"] nav ~ * div {
-    flex-wrap: wrap !important;
-}
-
-/* Proteger botones para que mantengan su forma original (Clear, Export, etc.) */
+[role="dialog"] nav ~ * div { flex-wrap: wrap !important; }
 [role="dialog"] nav ~ * button {
-    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe el aplastamiento */
-    width: max-content !important; /* Mide exactamente lo que ocupa su texto */
-    min-width: min-content !important;
-    height: auto !important;
-    min-height: 28px !important;
-    white-space: nowrap !important; /* El texto del botón NUNCA se corta */
-    padding: 4px 10px !important;
-    margin: 2px !important;
-    font-size: 12px !important;
+    flex-shrink: 0 !important; width: max-content !important; min-width: min-content !important;
+    height: auto !important; min-height: 28px !important; white-space: nowrap !important; 
+    padding: 4px 10px !important; margin: 2px !important; font-size: 12px !important;
 }
-
-/* Arreglar el buscador (Search logs...) para que sea flexible pero no se rompa */
 [role="dialog"] nav ~ * input[type="text"],
 [role="dialog"] nav ~ * input[placeholder*="Search"] {
-    width: 100% !important;
-    flex-shrink: 1 !important;
-    min-height: 32px !important;
-    margin-bottom: 8px !important;
+    width: 100% !important; flex-shrink: 1 !important;
+    min-height: 32px !important; margin-bottom: 8px !important;
 }
-
-/* Impedir que las palabras se rompan letra por letra */
-[role="dialog"] p, 
-[role="dialog"] span, 
-[role="dialog"] label, 
-[role="dialog"] pre {
-    word-break: normal !important;
-    overflow-wrap: anywhere !important; /* Solo corta palabras si es una ruta o ID extremadamente largo */
+[role="dialog"] p, [role="dialog"] span, [role="dialog"] label, [role="dialog"] pre {
+    word-break: normal !important; overflow-wrap: anywhere !important; 
 }
-
-/* Reducir los iconos dentro de los botones */
 [role="dialog"] svg {
-    width: 14px !important;
-    height: 14px !important;
-    flex-shrink: 0 !important;
-    margin-right: 4px !important;
+    width: 14px !important; height: 14px !important;
+    flex-shrink: 0 !important; margin-right: 4px !important;
 }
+
 
 /* ==========================================================================
-   5. REESTRUCTURACIÓN MÓVIL EXACTA POR POSITION: FIXED
+   3. BARRA SUPERIOR (TOP BAR) - ELIMINAR BÚSQUEDA Y EVITAR NOTCH
    ========================================================================== */
-
-/* 5.1 ELIMINAR BARRA DE BÚSQUEDA Y TOP BAR (SALVO TEMA OSCURO) */
+header[data-tauri-drag-region] {
+    padding-top: 12px !important; /* Espacio para que no choque con la cámara del móvil */
+    height: auto !important;
+    min-height: 40px !important;
+}
 header[data-tauri-drag-region] > div:first-child,
 [data-testid="search-box"] {
-    display: none !important;
+    display: none !important; /* Oculta búsqueda y logo */
 }
 header[data-tauri-drag-region] > div:last-child > :not(:last-child) {
     display: none !important; /* Oculta QR, deja el Switch Oscuro */
 }
-header[data-tauri-drag-region] {
-    position: fixed !important;
-    top: env(safe-area-inset-top, 24px) !important;
-    right: 0 !important; left: 0 !important;
-    height: 56px !important;
-    background: transparent !important;
-    border: none !important;
-    z-index: 2500 !important;
-    display: flex !important; justify-content: flex-end !important; align-items: center !important;
-    padding: 0 12px !important; pointer-events: none !important; 
-}
-header[data-tauri-drag-region] > div:last-child {
-    pointer-events: auto !important; /* El botón de tema oscuro es clicable */
-}
 
-/* 5.2 MOVER ELEMENTOS DEL MENÚ IZQUIERDO A LA PARTE SUPERIOR */
-/* Se apaga visualmente la barra lateral izquierda original para que el grid no la use */
-div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
-    position: fixed !important;
-    top: env(safe-area-inset-top, 24px) !important;
-    left: 0 !important; right: 0 !important;
-    width: 100vw !important; max-width: 100vw !important;
-    height: 56px !important; min-height: 56px !important;
-    border-right: none !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important;
-    background-color: var(--background-secondary) !important;
-    z-index: 2000 !important;
-    transform: none !important; /* Desactiva la animación horizontal de React */
-    display: flex !important; flex-direction: row !important;
-}
 
-/* Protegemos el contenido central añadiéndole un margen superior para que no se oculte tras la nueva barra */
+/* ==========================================================================
+   4. WORKSPACE CENTRAL - APILAR ELEMENTOS HACIA ABAJO
+   ========================================================================== */
+/* Cambiamos el Grid de columnas a Filas para que el Menú Izquierdo se quede de techo */
+div:has(> main[data-testid="player-workspace-main"]) {
+    display: flex !important;
+    flex-direction: column !important; 
+    width: 100% !important; 
+    height: 100% !important;
+    overflow: hidden !important;
+}
 main[data-testid="player-workspace-main"] {
-    padding-top: 56px !important;
+    flex: 1 1 auto !important;
+    width: 100% !important; 
+    height: 100% !important;
+    overflow-y: auto !important; 
+    overflow-x: hidden !important;
 }
 
-/* Ocultar botón "Contraer" de PC de la izquierda */
+
+/* ==========================================================================
+   5. BARRA LATERAL IZQUIERDA -> AHORA ES BARRA HORIZONTAL
+   ========================================================================== */
+/* El panel exterior */
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child {
+    width: 100% !important; 
+    max-width: 100% !important;
+    height: 56px !important; 
+    min-height: 56px !important;
+    border-right: none !important; 
+    border-bottom: 1px solid rgba(128,128,128,0.2) !important;
+    padding: 0 !important; 
+}
+/* Ocultar botón de expandir panel y barra de resize de PC */
 [data-testid="sidebar-toggle-left"],
 div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.cursor-col-resize {
     display: none !important;
 }
 
-/* Poner los botones de navegación en línea (Horizontal) */
-div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1 {
-    display: flex !important; flex-direction: row !important; width: 100% !important;
-}
+/* MAGIA: Forzar HORIZONTALIDAD en absolutamente todos los hijos internos */
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child,
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1,
 [data-testid="sidebar-navigation"] {
-    flex-direction: row !important; align-items: center !important; gap: 8px !important;
-    overflow-x: auto !important; overflow-y: hidden !important;
-    padding: 0 12px !important; padding-right: 60px !important; /* Espacio para no pisar el switch oscuro */
+    display: flex !important; 
+    flex-direction: row !important; 
+}
+/* Contenedor scrolleable de iconos */
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1 {
+    overflow-x: auto !important; 
+    overflow-y: hidden !important; 
+    align-items: center !important;
+    padding: 0 12px !important;
     scrollbar-width: none !important;
 }
-[data-testid="sidebar-navigation"]::-webkit-scrollbar { display: none !important; }
-
-/* Convertir los botones de navegación en iconos cuadrados */
+div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1::-webkit-scrollbar { 
+    display: none !important; 
+}
+[data-testid="sidebar-navigation"] {
+    gap: 8px !important; 
+    height: 100% !important; 
+    align-items: center !important;
+}
+/* Diseño de los iconos (solo iconos cuadrados) */
 [data-testid="sidebar-navigation-item"] {
     width: 40px !important; height: 40px !important; padding: 0 !important;
     justify-content: center !important; flex-shrink: 0 !important; border-radius: 8px !important;
 }
-[data-testid="sidebar-navigation-item"] span.whitespace-nowrap {
-    display: none !important; /* Oculta texto, deja el icono */
+[data-testid="sidebar-navigation-item"] span.whitespace-nowrap { 
+    display: none !important; /* Oculta el texto */
 }
 
-/* 5.3 BARRA INFERIOR (CONTROLES Y VOLUMEN) */
-/* Empujar controles centrales a la izquierda */
+
+/* ==========================================================================
+   6. REPRODUCTOR INFERIOR (BOTTOM BAR)
+   ========================================================================== */
+/* Controles centrales (Shuffle a Next) movidos a la izquierda */
 footer > div.grid > div:nth-child(2) {
     justify-self: flex-start !important;
     transform: translateX(-15px) !important;
 }
-/* ELIMINAR POR COMPLETO EL TERCER BLOQUE (VOLUMEN) */
-footer > div.grid > div:nth-child(3) {
+/* Ocultar slider de volumen y el botón original de sonido */
+[data-testid="player-volume-slider"],
+footer > div.grid > div:nth-child(3) button {
     display: none !important;
 }
 
-/* 5.4 EXTRAER EL BOTÓN DE LA COLA (QUEUE) Y PONERLO FIJO EN EL HUECO DEL VOLUMEN */
-[data-testid="sidebar-toggle-right"] {
-    position: fixed !important;
-    bottom: 12px !important;
-    right: 16px !important;
-    z-index: 3000 !important;
-    margin: 0 !important;
-    transform: rotate(-90deg) !important; /* Rotar icono para que parezca que sube */
-}
 
-/* 5.5 ANIMAR LA COLA (RIGHT SIDEBAR) DE ABAJO HACIA ARRIBA */
+/* ==========================================================================
+   7. BARRA LATERAL DERECHA (QUEUE DESDE ABAJO)
+   ========================================================================== */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     position: fixed !important;
-    bottom: 64px !important; /* Empieza justo encima del footer */
-    left: 0 !important; right: 0 !important;
-    width: 100vw !important; max-width: 100vw !important;
-    border-left: none !important; border-top: 1px solid rgba(128,128,128,0.2) !important;
+    bottom: 64px !important; /* Empieza por encima del Footer */
+    left: 0 !important; 
+    right: 0 !important;
+    width: 100vw !important; 
+    max-width: 100vw !important;
+    border-left: none !important; 
+    border-top: 1px solid rgba(128,128,128,0.2) !important;
     background-color: var(--background-secondary) !important;
-    z-index: 1500 !important;
-    transform: none !important; /* Desactiva la animación lateral de React */
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
+    z-index: 1000 !important;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    overflow: visible !important; /* CRÍTICO: Permite que el botón se descuelgue por debajo */
 }
 
-/* Mapeo Mágico: Cuando React cree que la cola está colapsada a 54px, nosotros la ocultamos a altura 0 */
+/* Alturas dinámicas basadas en el state de React */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child[style*="width: 54px"] {
     height: 0px !important;
-    opacity: 0 !important;
     border: none !important;
-    pointer-events: none !important;
 }
-
-/* Cuando React abre la cola (la hace más ancha), nosotros la levantamos ocupando el 70% de la pantalla */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child:not([style*="width: 54px"]) {
-    height: 70vh !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
+    height: 65vh !important;
 }
 
-/* Ocultar la barra de resize y la zona donde estaba originalmente el botón Toggle */
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child > div.cursor-col-resize,
-div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:first-child {
+/* Quitar barra de resize de la queue */
+div:has(> main[data-testid="player-workspace-main"]) > div:last-child > div.cursor-col-resize {
     display: none !important;
+}
+
+
+/* ==========================================================================
+   8. MOVER EL BOTÓN DE LA COLA A LA BARRA INFERIOR (ZONA DEL ALTAVOZ)
+   ========================================================================== */
+/* Sacamos el contenedor del botón fuera del panel de la Queue y lo bajamos a la Bottom Bar */
+div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:first-child {
+    position: absolute !important;
+    bottom: -52px !important; /* Desciende 52px (dentro del footer) */
+    right: 16px !important; /* A la derecha del todo */
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 !important; 
+    padding: 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 2000 !important;
+}
+[data-testid="sidebar-toggle-right"] {
+    transform: rotate(-90deg) !important; /* Flecha mirando hacia arriba */
+    margin: 0 !important;
 }
