@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V16 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
+   PARCHE MÓVIL NUCLEAR PLAYER - V16.2 (PANTALLA COMPLETA Y ANTI-DEFORMACIÓN)
    ========================================================================== */
 
 /* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
@@ -131,16 +131,19 @@ body, #root {
    3. BARRA SUPERIOR (TOP BAR) - ELIMINAR BÚSQUEDA Y EVITAR NOTCH
    ========================================================================== */
 header[data-tauri-drag-region] {
-    padding-top: max(calc(env(safe-area-inset-top) + 8px), 40px) !important; /* Espacio para que no choque con la cámara del móvil */
+    /* Desactivamos el Grid original de PC para poder alinear los botones a la derecha */
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    
+    /* Quitamos el padding-top excesivo (el body ya lo tiene) y damos padding inferior para separar del dashboard */
+    padding: 8px 12px 16px 12px !important; 
     height: auto !important;
-    min-height: 40px !important;
 }
+
 header[data-tauri-drag-region] > div:first-child,
 [data-testid="search-box"] {
     display: none !important; /* Oculta búsqueda y logo */
-}
-header[data-tauri-drag-region] > div:last-child > :not(:nth-last-child(-n+2)) {
-    display: none !important; /* Oculta QR, deja el Switch Oscuro */
 }
 
 
@@ -164,7 +167,7 @@ footer > div.grid > div:nth-child(3) button {
    ========================================================================== */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     position: fixed !important;
-    bottom: 64px !important; /* Empieza por encima del Footer */
+    bottom: 80px !important; /* Empieza por encima del Footer */
     left: 0 !important; 
     right: 0 !important;
     width: 100vw !important; 
@@ -198,7 +201,7 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child > div.curs
 /* Sacamos el contenedor del botón fuera del panel de la Queue y lo bajamos a la Bottom Bar */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:first-child {
     position: absolute !important;
-    bottom: -52px !important; /* Desciende 52px (dentro del footer) */
+    bottom: -68px !important; /* Desciende 52px (dentro del footer) */
     right: 16px !important; /* A la derecha del todo */
     width: 40px !important;
     height: 40px !important;
