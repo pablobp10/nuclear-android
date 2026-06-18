@@ -33,33 +33,9 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Obtener directorio de caché de pnpm
-        id: pnpm-cache-dir
-        run: echo "STORE_PATH=$(npm config get cache)" >> $GITHUB_ENV
-
-      - name: Caché de módulos pnpm
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Caché de Rust y dependencias compiladas
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "packages/player/src-tauri"
-
-      - name: Instalar dependencias del sistema
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-
-      - name: Instalar pnpm y dependencias
-        run: |
-          npm install -g pnpm@10.33.4
-          pnpm install
-
+      # ====================================================================
+      # 🛠️ CAMBIO CLAVE: PARCHEO ANTES DE LEER LA CACHÉ
+      # ====================================================================
       - name: Crear script de parcheo blindado (patch.cjs)
         run: |
           cat << 'EOF' > patch.cjs
@@ -147,6 +123,39 @@ jobs:
           } catch(e) { console.error("Error en capabilities:", e); }
           EOF
 
+      - name: 🛠️ Ejecutar Parches de Compatibilidad
+        run: node patch.cjs
+
+      # ====================================================================
+      # 🛡️ EVALUACIÓN DE CACHÉ (AHORA CON EL CÓDIGO YA MODIFICADO)
+      # ====================================================================
+      - name: Caché de Rust y dependencias compiladas
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/player/src-tauri"
+
+      - name: Obtener directorio de caché de pnpm
+        id: pnpm-cache-dir
+        run: echo "STORE_PATH=$(npm config get cache)" >> $GITHUB_ENV
+
+      - name: Caché de módulos pnpm
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Instalar dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Instalar pnpm y dependencias
+        run: |
+          npm install -g pnpm@10.33.4
+          pnpm install
+
       - name: 🛠️ Aplicar Interfaz de Android (Shadowing de android_ui)
         run: |
           if [ -d "android_ui" ]; then
@@ -169,9 +178,6 @@ jobs:
           cp public/logo-icon-on-white.png src-tauri/icons/icon.png
           cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
           npx tauri icon public/logo-icon-on-white.png
-
-      - name: 🛠️ Ejecutar Parches de Compatibilidad
-        run: node patch.cjs
 
       - name: Construir y Compilar APK (Firmado Automático + Optimizado)
         run: |
