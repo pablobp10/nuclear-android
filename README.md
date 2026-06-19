@@ -1,167 +1,99 @@
 <p align="center">
   <picture>
-    <source alt="Nuclear Music Player"  srcset="packages/docs/.gitbook/assets/readme-banner.png">
-    <img alt="Nuclear Music Player"  srcset="packages/docs/.gitbook/assets/readme-banner.png">
+    <!-- Usa aquí la ruta a tu icono generado o vectorial seguro -->
+    <img alt="Nuclear CE Logo" src="android_ui/packages/player/public/logo-icon-on-white.png" width="200" style="border-radius: 20%;">
   </picture>
-
-
 </p>
-
 <div align="center">
-
-# Nuclear 
-
+# Nuclear CE (Community Edition)
+### *Unofficial Android Mobile Port*
 </div>
-
 <div align="center">
-
-  Nuclear is a free, open-source music player without ads or tracking. Search for any song or artist, build playlists, and start listening.<br>
-  Runs on Windows, macOS, and Linux.
+  **Nuclear CE** is a free, open-source music player without ads or tracking, strictly engineered to provide native **Android (aarch64)** compatibility and a custom touch-optimized mobile UI.<br>
+  Search for any song or artist, build playlists, and start listening on the go.
   
 </div>
 
-## Screenshots
+## ⚠️ Legal Disclaimer & Trademark Notice
+**THIS PROJECT IS 100% UNOFFICIAL.** It is **not** affiliated with, endorsed by, or supported by the original Nuclear developers. 
+* The "Nuclear" name is utilized strictly under **Nominative Fair Use** to indicate the software's origin and backend engine. "CE" stands for Community Edition.
+* To respect original graphical trademarks, all official copyrighted logos have been programmatically replaced with generic safe-harbor icons during our   automated CI/CD build process.
 
-<p align="center">
-  <img src="packages/docs/.gitbook/assets/dashboard-main.png" alt="Nuclear Music Player - Dashboard" width="100%">
-</p>
+## 📱 Mobile Architecture Overhaul
 
-Nuclear comes with multiple built-in themes:
+Porting a desktop-first React/Tauri application to a native Android environment requires aggressive DOM manipulation and backend patching. This fork introduces the **V18 Mobile Architecture**, a comprehensive set of CSS injections and Rust overrides designed to bypass upstream desktop constraints without altering the core React component tree.
 
-<p align="center">
-  <img src="packages/docs/.gitbook/assets/dashboard-green.png" alt="Green theme" width="32%">
-  <img src="packages/docs/.gitbook/assets/dashboard-aqua.png" alt="Aqua theme" width="32%">
-  <img src="packages/docs/.gitbook/assets/dashboard-mint.png" alt="Mint theme" width="32%">
-</p>
-<p align="center">
-  <img src="packages/docs/.gitbook/assets/dashboard-orange.png" alt="Orange theme" width="32%">
-  <img src="packages/docs/.gitbook/assets/dashboard-red.png" alt="Red theme" width="32%">
-  <img src="packages/docs/.gitbook/assets/dashboard-violet.png" alt="Violet theme" width="32%">
-</p>
+### 1. Advanced DOM Restructuring & Radix UI Overrides
+The original desktop app relies heavily on Radix UI for its modal and dialog management, which behaves unpredictably on mobile screens. We implemented a strict floating-card paradigm:
+* **95% Floating Modals:** Dialogs (like Settings) are forcibly detached from their native Radix wrappers using `position: absolute` and `transform: translate(-50%, -50%)`. They are mathematically constrained to `95vw` width and `75vh` height, featuring rounded borders for a native Android UI feel.
+* **The 2000px Backdrop Hack:** To fix Radix UI's broken background layering on mobile resolutions, we inject a massive `box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.6)` directly into the floating dialog container. This guarantees a perfect modal blackout effect across any screen size without relying on brittle React state changes.
 
-| | |
-|:---:|:---:|
-| ![Search artists](packages/docs/.gitbook/assets/search-artists.png) | ![Search albums](packages/docs/.gitbook/assets/search-albums.png) |
-| Artist search | Album search |
-| ![Playlists](packages/docs/.gitbook/assets/playlists.png) | ![Plugin store](packages/docs/.gitbook/assets/plugin-store.png) |
-| Playlists | Plugin store |
-| ![Installed plugins](packages/docs/.gitbook/assets/installed-plugins.png) | ![Preferences](packages/docs/.gitbook/assets/preferences.png) |
-| Installed plugins | Preferences |
-| ![What's new](packages/docs/.gitbook/assets/whats-new.png) | ![Log viewer](packages/docs/.gitbook/assets/log-viewer.png) |
-| What's new | Log viewer |
+### 2. Z-Index & Stacking Context Hierarchy
+Mobile screens require strict overlapping rules to prevent UI collisions. The V18 patch enforces a rigid, conflict-free Z-Index queue:
+* **`z-index: 10` (Floating Controls):** The QR and Theme switches are detached from the original desktop top bar and pinned to the bottom-left, floating above the main workspace but remaining completely subordinate to system modals.
+* **`z-index: 40` (The Queue Panel):** The desktop right-sidebar queue is transformed into a bottom-up sliding panel. Its toggle button is surgically relocated to the bottom player bar (speaker zone) and rotated `-90deg` to indicate vertical expansion.
+* **`z-index: 50+` (Modals & Dialogs):** Settings and search overlays remain at the top of the visual stack, ensuring no floating buttons pierce through the dark backdrops.
 
-## Download
+### 3. Touch Optimization & Notch Safe-Areas
+* **Eradication of the Top Bar:** The desktop window frame (`<header data-tauri-drag-region>`) is aggressively collapsed to `height: 0` to reclaim vital vertical screen real estate.
+* **Notch Compatibility:** Dynamic CSS using `env(safe-area-inset-top)` is applied to the workspace wrapper to prevent the user interface from bleeding into hardware camera cutouts.
+* **Anti-Deformation Constraints:** Deep CSS nesting rules (`flex-shrink: 0`, `white-space: nowrap`) strictly prohibit text wrapping inside interactive elements and prevent the settings navigation sidebar from being crushed on narrow portrait displays.
 
-Grab the latest release for your platform from the [Releases page](https://github.com/nukeop/nuclear/releases).
+### 4. Backend Cross-Compilation Engine (`patch.cjs`)
+The original Rust backend is not configured for `aarch64-linux-android`. Our CI/CD pipeline injects a surgical script (`patch.cjs`) before compilation to aggressively mutate the codebase:
+* **Desktop Plugin Stripping:** Automatically parses and removes PC-only Tauri plugins (`tauri-plugin-updater`, `tauri-plugin-window-state`, `tauri-plugin-process`) from `Cargo.toml` and `lib.rs` that would cause Android build failures (Exec format errors).
+* **TLS & Network Patches:** Rewrites `reqwest` dependencies to force the use of `rustls-tls-webpki-roots`, resolving native Android SSL certificate validation issues on ARM architectures.
+* **System Capabilities:** Injects an `android-almighty.json` capability file to grant the frontend necessary filesystem (`fs:*`) and window management permissions within the isolated Android Sandbox.
 
-| Platform | Formats |
-|----------|---------|
-| Windows | `.exe` installer, `.msi` |
-| macOS | `.dmg` (Apple Silicon and Intel) |
-| Linux | `.AppImage`, `.deb`, `.rpm`, `.flatpak` |
+  
+## 📥 Download
+Grab the latest compiled Android artifacts from the [Releases page](../../releases).
 
-## Features
 
-- Search for music and stream it from any source
-- Browse artist pages with biographies, discographies, and similar artists
-- Browse album pages with track listings
-- Queue management with shuffle, repeat, and drag-and-drop reordering
-- Favorites (albums, artists, and tracks)
-- Playlists (create, import, export, import from varous services)
-- Powerful plugin system with a built-in plugin store
-- Themes (built-in and custom CSS themes)
-- MCP server lets your AI agent drive the player
-- Auto-updates
-- Keyboard shortcuts
-- Localized in multiple languages
+| Platform | Formats | Architecture |
+| :--- | :--- | :--- |
+| Android | `.apk` | `aarch64` (ARM64) |
 
-## Plugins
+*Note: All APKs are automatically generated, signed, and optimized via our GitHub Actions pipeline.*
 
-Nuclear has a powerful plugin system now! Every functionality has been redesigned to be driven by plugins.
+## ✨ Features
+- **Mobile First:** Entirely restyled UI for Android environments.
+- **Universal Streaming:** Search for music and stream it from any source.
+- **Deep Exploration:** Browse artist pages with biographies, discographies, and similar artists.
+- **Queue Management:** Shuffle, repeat, and drag-and-drop reordering optimized for touch screens.
+- **Library Sync:** Favorites (albums, artists, and tracks) and Playlists.
+- **Plugin Ecosystem:** Powerful plugin system with a built-in plugin store for metadata and streaming sources.
+- **Customization:** Built-in themes optimized for OLED mobile displays.
 
-Plugins can provide streaming sources, metadata, playlists, dashboard content, and more. Browse and install plugins from the built-in plugin store, or write your own using the [@nuclearplayer/plugin-sdk](https://www.npmjs.com/package/@nuclearplayer/plugin-sdk).
+## 🧩 Plugins & MCP
+Nuclear CE inherits the powerful plugin system from the core project! Every functionality is driven by plugins. Plugins can provide streaming sources, metadata, playlists, and dashboard content.
+* **Plugin Store:** Browse and install plugins directly from the mobile app.
+* **MCP Integration:** The Model Context Protocol (MCP) server allows AI agents to drive the player locally.
 
-## MCP
+## 🛠️ Development & Compilation
+Nuclear CE is a pnpm monorepo managed with Turborepo. The main app is built with Tauri (Rust + React). This fork includes rigorous backend patches (`patch.cjs`) to enable `aarch64-linux-android` cross-compilation via the Android NDK.
 
-You can enable the MCP server in Settings → Integrations.
-
-Then to add it to **Claude Code:**
-
-```bash
-claude mcp add nuclear --transport http http://127.0.0.1:8800/mcp
-```
-
-**Codex CLI:**
-
-```bash
-codex mcp add nuclear --url http://127.0.0.1:8800/mcp
-```
-
-**OpenCode:**
-
-```json
-{
-  "mcp": {
-    "nuclear": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8800/mcp"
-    }
-  }
-}
-```
-
-**Claude Desktop / Cursor / Windsurf:**
-
-```json
-{
-  "mcpServers": {
-    "nuclear": {
-      "url": "http://127.0.0.1:8800/mcp"
-    }
-  }
-}
-```
-
-The MCP is designed to be discoverable, but there's a skill you can load to get your AI up to speed: [Nuclear MCP Skill](./packages/docs/public/skills/nuclear-mcp.zip)
-
-## Development
-
-Nuclear is a pnpm monorepo managed with Turborepo. The main app is built with Tauri (Rust + React).
-
-### Prerequisites
-
+### Prerequisites for Local Builds
 - Node.js >= 22
 - pnpm >= 9
-- Rust (stable)
-- Platform-specific Tauri dependencies ([see Tauri docs](https://v2.tauri.app/start/prerequisites/))
+- Rust (stable) with `aarch64-linux-android` target
+- Android Studio / Android NDK & SDK toolchains
 
-### Getting started
-
+### Automated CI/CD (GitHub Actions)
+We utilize a defensive GitHub Actions pipeline (`android.yml`) to compile the app without manual intervention. The pipeline automatically:
+1. Strips incompatible desktop plugins (`tauri-plugin-updater`, etc.) from `Cargo.toml`.
+2. Injects the touch-optimized UI.
+3. Generates the generic CE branding.
+4. Compiles the `.apk` using Tauri Android.
+   
+### Manual Build Instructions
 ```bash
-git clone https://github.com/nukeop/nuclear.git
-cd nuclear
+git clone [https://github.com/YOUR_USERNAME/nuclear-android.git](https://github.com/YOUR_USERNAME/nuclear-android.git)
+cd nuclear-android
 pnpm install
-pnpm dev
-```
-
-### Useful commands
-
-```bash
-pnpm dev            # Run the player in dev mode
-pnpm dev:remote     # Same, but binds Vite to 0.0.0.0 so you can open the remote control UI from other devices on your LAN
-pnpm build          # Build all packages
-pnpm test           # Run all tests
-pnpm lint           # Lint all packages
-pnpm type-check     # TypeScript checks
-pnpm storybook      # Run Storybook
-```
-
-## Community
-
-- [Discord](https://discord.gg/JqPjKxE)
-- [Mastodon](https://fosstodon.org/@nuclearplayer)
-- [Discussions](https://github.com/nukeop/nuclear/discussions)
-
-## License
-
-AGPL-3.0. See [LICENSE](LICENSE).
+# 1. Apply Android specific cross-compilation patches
+node patch.cjs
+# 2. Build frontend and Android APK
+cd packages/player
+pnpm run build:frontend
+npx tauri android build --apk --target aarch64
