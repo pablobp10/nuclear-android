@@ -1,3 +1,5 @@
+*Read this in other languages: [English](README.md) | [Español](README-es.md)*
+
 <p align="center">
   <picture>
     <!-- Usa aquí la ruta a tu icono generado o vectorial seguro -->
