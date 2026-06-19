@@ -68,7 +68,6 @@ jobs:
               );
               let result = lines.join("\n");
               
-              // Buscamos cualquier declaración de reqwest (con o sin llaves) y la forzamos a WebPKI puro
               result = result.replace(/reqwest\s*=\s*\{.*?\}/g, "");
               result = result.replace(/^reqwest\s*=\s*"[^"]+"/gm, "");
               
@@ -77,7 +76,6 @@ jobs:
                   '[dependencies]\nreqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "json", "stream", "cookies"] }'
               );
               
-              // Optimizaciones de compilador
               if (!result.includes("[profile.dev]")) {
                   result += `\n\n[profile.dev]\npanic = "abort"\ncodegen-units = 1\nlto = true\nopt-level = "z"\nstrip = true\n`;
               }
@@ -121,7 +119,6 @@ jobs:
                   fs.writeFileSync(path.join(capsDir, "android-almighty.json"), JSON.stringify(almightyCap, null, 2));
               }
           } catch(e) { console.error("Error en capabilities:", e); }
-          EOF
 
           // 6. ESCUDO LEGAL: Rebranding de la aplicación (Trademark Safe)
           const tauriConfPath = "./packages/player/src-tauri/tauri.conf.json";
@@ -135,6 +132,7 @@ jobs:
               }
               return JSON.stringify(conf, null, 2);
           });
+          EOF
           
       - name: 🛠️ Ejecutar Parches de Compatibilidad
         run: node patch.cjs
