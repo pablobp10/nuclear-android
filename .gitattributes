@@ -6,3 +6,8 @@
 *.gif binary
 *.webp binary
 *.svg text
+
+* text=auto eol=lf
+*.cjs text eol=lf
+*.js text eol=lf
+*.rs text eol=lf
