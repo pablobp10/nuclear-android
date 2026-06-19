@@ -16,7 +16,7 @@ body, #root {
 }
 
 /* ==========================================================================
-   2. MENÚ DE AJUSTES (TARJETA FLOTANTE)
+   2. MENÚ DE AJUSTES (TARJETA FLOTANTE CON BACKDROP OSCURO)
    ========================================================================== */
 /* El diálogo es la tarjeta en sí. La centramos absolutamente en la pantalla. */
 [role="dialog"] {
@@ -41,6 +41,9 @@ body, #root {
     display: flex !important;
     flex-direction: row !important;
     background-color: var(--background-secondary) !important; 
+
+    /* LA MAGIA: Proyecta una sombra gigante que oscurece el resto de la pantalla (Fondo gris) */
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.6) !important;
 }
 
 /* El contenido interno ocupa el 100% de nuestra nueva tarjeta flotante */
@@ -54,7 +57,6 @@ body, #root {
 
 /* Ocultar la X de cerrar de PC */
 [role="dialog"] button[class*="absolute"] { display: none !important; }
-
 
 /* --------------------------------------------------------------------------
    MENÚ LATERAL DENTRO DE LOS AJUSTES - ANCHO FIJO
