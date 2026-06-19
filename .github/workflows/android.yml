@@ -195,4 +195,7 @@ jobs:
           files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           body: "APK compilado nativamente para Android (aarch64). UI Táctil y Rebranding Legal aplicados."
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          
+      - name: "Generar Checksums"
+        run: sha256sum packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk > checksums.txt
