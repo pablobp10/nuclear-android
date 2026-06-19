@@ -1,8 +1,13 @@
 *Read this in other languages: [English](README.md) | [Español](README-es.md)*
 <p align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/pablobp10/nuclear-android/android.yml?branch=main&label=Build%20Status&logo=android" alt="Build Status">
-  <img src="https://img.shields.io/github/license/pablobp10/nuclear-android?color=blue" alt="License">
-  <img src="https://img.shields.io/github/v/release/pablobp10/nuclear-android?include_prereleases&sort=semver" alt="Latest Release">
+  <img src="https://img.shields.io/github/actions/workflow/status/pablobp10/nuclear-android/android.yml?branch=main&label=Build%20Status&logo=githubactions&logoColor=white" alt="Build Status">
+  <img src="https://img.shields.io/github/license/pablobp10/nuclear-android?color=blue&logo=open-source-initiative&logoColor=white" alt="License">
+  
+  <img src="https://img.shields.io/github/v/release/pablobp10/nuclear-android?include_prereleases&sort=semver&label=Latest%20APK&logo=android&logoColor=white&color=success" alt="Latest Release">
+  <img src="https://img.shields.io/github/downloads/pablobp10/nuclear-android/total?color=blueviolet&logo=github&label=Downloads" alt="Total Downloads">
+
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20aarch64-3DDC84?logo=android&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/github/last-commit/pablobp10/nuclear-android?logo=git&logoColor=white&label=Last%20Update" alt="Last Commit">
 </p>
 
 <p align="center">
