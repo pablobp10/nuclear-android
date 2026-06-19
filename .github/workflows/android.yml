@@ -199,7 +199,13 @@ jobs:
           npx tauri android build --debug --apk --target aarch64
 
       - name: "Generar Checksums"
-        run: sha256sum packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk > checksums.txt
+        run: |
+          echo "Buscando APKs generados..."
+          # Usamos find para localizar recursivamente todos los .apk y pasarles el comando sha256sum
+          find packages/player/src-tauri/gen/android/app/build/outputs/apk -type f -name "*.apk" -exec sha256sum {} + > checksums.txt
+          
+          echo "=== CHECKSUMS GENERADOS ==="
+          cat checksums.txt
 
       - name: "🚀 Release: Empaquetar artefactos"
         uses: softprops/action-gh-release@v2
