@@ -1,0 +1,36 @@
+name: Auto-Release & Changelog
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🤖 Ejecutar Google Release Please
+        uses: googleapis/release-please-action@v4
+        with:
+          # "simple" genera el CHANGELOG sin intentar modificar 
+          # los package.json o Cargo.toml del creador original, evitando conflictos.
+          release-type: simple
+          target-branch: main
+
+#feat:  (Feature). Úsalo cuando añadas algo nuevo. El bot lo pondrá en la sección "Features" del Changelog y subirá la versión (ej. de v1.1.0 a v1.2.0).
+
+#Ejemplo: feat: añade botón flotante para la cola de reproducción
+
+#fix:  (Bug Fix). Úsalo cuando corrijas un error. El bot lo pondrá en la sección "Bug Fixes" y subirá la versión menor (ej. de v1.1.0 a v1.1.1).
+
+#Ejemplo: fix: corrige colisión de z-index en el modal de ajustes
+
+#chore:  (Mantenimiento). Úsalo para cambios internos (como modificar el .gitattributes o el android.yml). El bot ignorará esto y no lo pondrá en el Changelog para no aburrir a los usuarios.
+
+#Ejemplo: chore: actualiza dependencias de pnpm
+
+#docs:  (Documentación). Para cambios en el README. También se ignora en el Changelog público.
