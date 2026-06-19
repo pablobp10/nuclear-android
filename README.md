@@ -1,4 +1,9 @@
 *Read this in other languages: [English](README.md) | [Español](README-es.md)*
+<p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/pablobp10/nuclear-android/android.yml?branch=main&label=Build%20Status&logo=android" alt="Build Status">
+  <img src="https://img.shields.io/github/license/pablobp10/nuclear-android?color=blue" alt="License">
+  <img src="https://img.shields.io/github/v/release/pablobp10/nuclear-android?include_prereleases&sort=semver" alt="Latest Release">
+</p>
 
 <p align="center">
   <picture>
