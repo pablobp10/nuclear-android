@@ -123,6 +123,19 @@ jobs:
           } catch(e) { console.error("Error en capabilities:", e); }
           EOF
 
+          // 6. ESCUDO LEGAL: Rebranding de la aplicación (Trademark Safe)
+          const tauriConfPath = "./packages/player/src-tauri/tauri.conf.json";
+          overwriteSafe(tauriConfPath, (code) => {
+              let conf = JSON.parse(code);
+              if (conf.package && conf.package.productName) {
+                  conf.package.productName = "Nuclear CE"; 
+              }
+              if (conf.tauri && conf.tauri.bundle && conf.tauri.bundle.identifier) {
+                  conf.tauri.bundle.identifier = "com.unofficial.nuclear.android";
+              }
+              return JSON.stringify(conf, null, 2);
+          });
+          
       - name: 🛠️ Ejecutar Parches de Compatibilidad
         run: node patch.cjs
 
@@ -187,15 +200,17 @@ jobs:
           cd packages/player
           npx tauri android build --debug --apk --target aarch64
 
+      - name: "Generar Checksums"
+        run: sha256sum packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk > checksums.txt
+
       - name: "🚀 Release: Empaquetar artefactos"
         uses: softprops/action-gh-release@v2
         with:
           name: "Nuclear CE (Android Build)"
           tag_name: "build-${{ github.run_id }}"
-          files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          files: |
+            packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            checksums.txt
           body: "APK compilado nativamente para Android (aarch64). UI Táctil y Rebranding Legal aplicados."
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-          
-      - name: "Generar Checksums"
-        run: sha256sum packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk > checksums.txt
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
