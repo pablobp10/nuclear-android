@@ -31,23 +31,28 @@ jobs:
           
           ESTADO_PREVIO=$(git rev-parse HEAD)
           
-          # ESTRATEGIA SQUASH: Fusión sin historiales problemáticos
+          # 1. ACTUALIZACIÓN AGRESIVA (-X theirs): El código del autor original manda siempre en caso de conflicto.
           git merge upstream/master --squash -X theirs --allow-unrelated-histories || true
           
-          # Protección absoluta de la carpeta .github
-          git reset HEAD .github/ || true
-          git checkout HEAD -- .github/ || true
+          # 2. RESCATE DEL NÚCLEO DURO (Obligatorio para no perder el repositorio)
+          # Rescatamos tu contrato legal, tus scripts y tu carpeta UI de la sobrescritura justo antes de guardar.
+          git reset HEAD .github/ README.md patch.cjs android_ui/ || true
+          git checkout HEAD -- .github/ README.md patch.cjs android_ui/ || true
           
-          # Guardado limpio como bot estándar
-          git commit -m "Auto-Sync: Actualización limpia desde upstream (Squash)" || true
+          # 3. Reporte de Diff por consola para fácil debugging si la build falla
+          echo "=== ARCHIVOS ACTUALIZADOS DESDE UPSTREAM ==="
+          git diff --cached --name-status
+          echo "==========================================="
+          
+          # Guardado final de la sincronización
+          git commit -m "Auto-Sync: Actualización agresiva desde upstream (Squash)" || true
           
           ESTADO_NUEVO=$(git rev-parse HEAD)
           
           if [ "$ESTADO_PREVIO" != "$ESTADO_NUEVO" ]; then
-            # Ahora el push estándar funcionará siempre
             git push origin main
             echo "cambios_nuevos=true" >> $GITHUB_OUTPUT
-            echo "¡Actualización detectada y fusionada con éxito!"
+            echo "¡Actualización detectada y fusionada (Prioridad Upstream)!"
           else
             echo "cambios_nuevos=false" >> $GITHUB_OUTPUT
             echo "Todo está al día. El creador original no ha subido nada nuevo."
@@ -58,6 +63,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Llama al constructor de forma segura con el token predeterminado
-          gh workflow run android.yml --ref main --repo ${{ github.repository }}
-          echo "¡Orden de compilación enviada al Constructor (android.yml)!"
+          gh workflow run android.yml --ref main
+          echo "¡Orden de compilación enviada al Constructor!"
