@@ -16,39 +16,39 @@ body, #root {
 }
 
 /* ==========================================================================
-   2. MENÚ DE AJUSTES (CONTENEDOR Y TARJETA FLOTANTE)
+   2. MENÚ DE AJUSTES (TARJETA FLOTANTE)
    ========================================================================== */
-/* Contenedor principal a pantalla completa (El fondo oscuro de Radix) */
+/* El diálogo es la tarjeta en sí. La centramos absolutamente en la pantalla. */
 [role="dialog"] {
     position: fixed !important;
-    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-    width: 100vw !important; height: 100vh !important;
-    margin: 0 !important; padding: 0 !important;
-    border: none !important; transform: none !important;
-    background-color: transparent !important; 
-}
-
-/* LA TARJETA (Centrado absoluto, mata cualquier desvío al top-left) */
-[role="dialog"] > div {
-    position: absolute !important;
     top: 50% !important; 
     left: 50% !important;
-    transform: translate(-50%, -50%) !important; /* Centrado matemático infalible */
+    transform: translate(-50%, -50%) !important; /* Centrado matemático */
     
-    width: 95vw !important; max-width: 95vw !important;
-    height: 75vh !important; max-height: 85vh !important;
+    width: 95vw !important; 
+    max-width: 95vw !important;
+    height: 75vh !important; 
+    max-height: 85vh !important;
 
+    margin: 0 !important; 
+    padding: 0 !important;
+    
+    /* Estética de tarjeta flotante */
     border-radius: 16px !important; 
     border: 2px solid var(--border) !important;
-    background-color: var(--background-secondary) !important;
     overflow: hidden !important; 
+
+    display: flex !important;
+    flex-direction: row !important;
+    background-color: var(--background-secondary) !important; 
 }
 
-/* Distribución interna del menú (Mantiene tu división intacta) */
+/* El contenido interno ocupa el 100% de nuestra nueva tarjeta flotante */
 [role="dialog"] > div:has(nav) {
     display: flex !important;
     flex-direction: row !important;
-    width: 100% !important; height: 100% !important;
+    width: 100% !important; 
+    height: 100% !important;
     background-color: transparent !important;
 }
 
