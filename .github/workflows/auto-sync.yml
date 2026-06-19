@@ -35,9 +35,8 @@ jobs:
           git merge upstream/master --squash -X theirs --allow-unrelated-histories || true
           
           # 2. RESCATE DEL NÚCLEO DURO (Obligatorio para no perder el repositorio)
-          # Rescatamos tu contrato legal, tus scripts y tu carpeta UI de la sobrescritura justo antes de guardar.
-          git reset HEAD .github/ README.md patch.cjs android_ui/ || true
-          git checkout HEAD -- .github/ README.md patch.cjs android_ui/ || true
+          git reset HEAD .github/ README.md README-es.md patch.cjs android_ui/ LICENSE .gitattributes || true
+          git checkout HEAD -- .github/ README.md README-es.md patch.cjs android_ui/ LICENSE .gitattributes || true
           
           # 3. Reporte de Diff por consola para fácil debugging si la build falla
           echo "=== ARCHIVOS ACTUALIZADOS DESDE UPSTREAM ==="
