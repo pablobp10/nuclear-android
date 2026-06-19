@@ -179,17 +179,20 @@ jobs:
           cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
           npx tauri icon public/logo-icon-on-white.png
 
+      # ====================================================================
+      # 🚀 FASE 4: ENSAMBLAJE Y PUBLICACIÓN
+      # ====================================================================
       - name: Construir y Compilar APK (Firmado Automático + Optimizado)
         run: |
           cd packages/player
           npx tauri android build --debug --apk --target aarch64
 
-      - name: "🚀 Bypass: Empaquetar como GitHub Release"
+      - name: "🚀 Release: Empaquetar artefactos"
         uses: softprops/action-gh-release@v2
         with:
-          name: "Nuclear Android Build (Nightly)"
+          name: "Nuclear CE (Android Build)"
           tag_name: "build-${{ github.run_id }}"
           files: packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          body: "APK compilado, purgado de pánicos de Rust y optimizado."
+          body: "APK compilado nativamente para Android (aarch64). UI Táctil y Rebranding Legal aplicados."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
