@@ -316,3 +316,28 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:fir
     transform: rotate(-90deg) !important; 
     margin: 0 !important;
 }
+
+/* ==========================================================================
+   7. CORRECCIÓN DE TARJETAS GIGANTES (TIENDA DE PLUGINS)
+   ========================================================================== */
+/* 1. Desactivar el comportamiento de estiramiento vertical de las cuadrículas de Tailwind */
+[role="dialog"] nav ~ div div[class*="grid"],
+[role="dialog"] nav ~ div div[style*="display: grid"] {
+    align-items: start !important;
+    align-content: start !important;
+}
+
+/* 2. Forzar a los bloques/tarjetas internas a medir exactamente lo que ocupa su texto */
+[role="dialog"] nav ~ div > div > div > div {
+    height: max-content !important;
+    min-height: auto !important;
+    flex-grow: 0 !important;
+}
+
+/* 3. Asegurar que la imagen/icono del plugin no se distorsione */
+[role="dialog"] nav ~ div img,
+[role="dialog"] nav ~ div svg[class*="w-"] {
+    height: auto !important;
+    flex-shrink: 0 !important;
+}
+
