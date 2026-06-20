@@ -90,79 +90,81 @@ body, #root {
 }
 
 /* --------------------------------------------------------------------------
-   MENÚ LATERAL IZQUIERDO (COMPRESIÓN Y MODO SÓLO ICONOS)
+   MENÚ LATERAL IZQUIERDO (RECORTE FÍSICO, NO HACKS DE FUENTE)
    -------------------------------------------------------------------------- */
 [role="dialog"] nav {
     display: flex !important;
     flex-direction: column !important;
 
     /* Ancho restringido solo a los iconos */
-    width: 55px !important; 
-    min-width: 55px !important;
-    max-width: 55px !important;
+    width: 64px !important; 
+    min-width: 64px !important;
+    max-width: 64px !important;
     height: 100% !important; 
 
     flex-shrink: 0 !important; 
     overflow-y: auto !important;
     overflow-x: hidden !important;
     
-    /* Aislamiento físico del scroll (evita que la app de fondo se mueva) */
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
 
-    padding: 8px 0px !important;
-    border-right: 1px solid rgba(255,255,255,0.05) !important;
+    padding: 12px 0px !important;
+    border-right: 2px solid var(--border) !important;
     background-color: transparent !important;
 }
 
-/* Matar el texto (font-size: 0) y preparar botón cuadrado táctil */
+/* Guillotinado de texto: Se mantiene el tamaño y color intacto */
 [role="dialog"] nav button {
-    font-size: 0px !important; 
-    color: transparent !important; 
     width: 100% !important;
     flex-shrink: 0 !important;
-    padding: 14px 0 !important; 
-    margin-bottom: 2px !important;
+    overflow: hidden !important; /* CRÍTICO: Corta el texto sobrante */
+    white-space: nowrap !important;
     
     display: flex !important;
-    justify-content: center !important;
+    justify-content: flex-start !important; /* Mantiene el contenido pegado a la izquierda */
     align-items: center !important;
+    
+    /* 20px de margen izquierdo para centrar visualmente el icono de 20px en la columna de 64px */
+    padding: 14px 0 14px 20px !important; 
+    margin-bottom: 8px !important;
+    
+    font-size: 13px !important; /* Restaura tamaño original */
+    color: var(--text-primary) !important; /* Restaura el color original, reviviendo el icono */
 }
 
-/* Restaurar tamaño y color exclusivamente a los SVG */
 [role="dialog"] nav button svg {
     width: 22px !important; 
     height: 22px !important;
-    margin: 0 !important; 
-    color: var(--text-primary) !important; 
+    flex-shrink: 0 !important; /* Impide que el icono se aplaste */
+    /* LA MAGIA: Empuja el texto violentamente hacia la derecha para que caiga fuera del botón y sea cortado */
+    margin-right: 50px !important; 
 }
 
 /* Ocultar versión/iconos inútiles del fondo */
 [role="dialog"] nav > div:last-child { display: none !important; }
 
 /* --------------------------------------------------------------------------
-   ÁREA DE CONTENIDO DERECHA (ESCALADA 0.9 Y COMPENSADA)
+   ÁREA DE CONTENIDO DERECHA (AUTO-AJUSTE NATIVO SIN ESCALADO)
    -------------------------------------------------------------------------- */
 [role="dialog"] nav ~ div,
 [role="dialog"] nav + div {
     flex: 1 1 auto !important; 
+    /* El contenedor ocupa todo el espacio menos los 64px del menú izquierdo */
+    width: calc(100% - 64px) !important; 
+    max-width: calc(100% - 64px) !important;
+    height: 100% !important;
     overflow-y: auto !important;
     padding: 16px !important;
     background-color: transparent !important;
 
-    /* Aislamiento físico del scroll */
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
 
-    /* Escalado solicitado */
-    transform: scale(0.9) !important;
-    transform-origin: top left !important;
-    
-    /* Compensación lógica: Rellenar el vacío provocado por el scale */
-    width: 111.11% !important;
-    max-width: 111.11% !important;
-    height: 111.11% !important;
+    /* ELIMINADO EL TRANSFORM: SCALE. Usamos flex nativo para que los bordes encajen perfectos */
+    transform: none !important;
 }
+
 
 /* --------------------------------------------------------------------------
    ANTIDEFORMACIÓN DEL CONTENIDO INTERNO
