@@ -1,8 +1,30 @@
 /* ==========================================================================
-   PARCHE MÓVIL NUCLEAR PLAYER - V18.1 (AJUSTES TARJETA Y Z-INDEX DEFINITIVO)
+   PARCHE MÓVIL NUCLEAR PLAYER - V19 (AJUSTES NATIVOS, SCROLL TÁCTIL Y Z-INDEX)
    ========================================================================== */
 
-/* 1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES) */
+/* ==========================================================================
+   0. SCROLLBAR GLOBAL MÓVIL (APLICA A TODA LA APP)
+   ========================================================================== */
+/* Aislar anchura estándar */
+* {
+    scrollbar-width: none !important; 
+}
+
+/* Ocultar visualmente las barras en Chromium manteniendo el arrastre táctil */
+::-webkit-scrollbar {
+    display: none !important; 
+    width: 0px !important;
+    height: 0px !important;
+    background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+    display: none !important;
+}
+
+/* ==========================================================================
+   1. RESET Y PANTALLA COMPLETA TOTAL (MATAR BANDAS GRISES)
+   ========================================================================== */
 body, #root { 
     padding: 0 !important; 
     overflow: hidden !important; 
@@ -45,16 +67,15 @@ body, #root {
 [role="dialog"] button[class*="absolute"] { display: none !important; }
 
 /* 🚀 BOMBARDEO DE NIVELES: Destruir restricciones de Tailwind en las cajas fantasma */
-/* Aplicamos max-width y p-0 a los 4 primeros niveles de profundidad dentro del diálogo */
 [role="dialog"] > div,
 [role="dialog"] > div > div,
 [role="dialog"] > div > div > div,
 [role="dialog"] > div > div > div > div {
     width: 100% !important;
-    max-width: 100vw !important; /* Mata el max-w-2xl */
+    max-width: 100vw !important; 
     height: 100% !important;
     max-height: 100% !important;
-    padding: 0 !important;       /* Mata el p-6 de Tailwind */
+    padding: 0 !important;       
     margin: 0 !important;
     border: none !important;
     background: transparent !important;
@@ -69,103 +90,99 @@ body, #root {
 }
 
 /* --------------------------------------------------------------------------
-   MENÚ LATERAL IZQUIERDO (COLUMNA ESTRECHA)
+   MENÚ LATERAL IZQUIERDO (COMPRESIÓN Y MODO SÓLO ICONOS)
    -------------------------------------------------------------------------- */
 [role="dialog"] nav {
     display: flex !important;
     flex-direction: column !important;
 
-    width: 35% !important; 
-    min-width: 110px !important;
-    max-width: 140px !important;
+    /* Ancho restringido solo a los iconos */
+    width: 55px !important; 
+    min-width: 55px !important;
+    max-width: 55px !important;
     height: 100% !important; 
 
     flex-shrink: 0 !important; 
-
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    padding: 12px 6px !important;
-    border-right: 1px solid rgba(0,0,0,0.1) !important;
+    
+    /* Aislamiento físico del scroll (evita que la app de fondo se mueva) */
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+
+    padding: 8px 0px !important;
+    border-right: 1px solid rgba(255,255,255,0.05) !important;
     background-color: transparent !important;
 }
 
+/* Matar el texto (font-size: 0) y preparar botón cuadrado táctil */
 [role="dialog"] nav button {
+    font-size: 0px !important; 
+    color: transparent !important; 
     width: 100% !important;
     flex-shrink: 0 !important;
-    padding: 10px 8px !important;
-    margin-bottom: 4px !important;
-    font-size: 13px !important;
-    text-align: left !important;
-    white-space: normal !important; 
+    padding: 14px 0 !important; 
+    margin-bottom: 2px !important;
+    
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
 }
 
+/* Restaurar tamaño y color exclusivamente a los SVG */
+[role="dialog"] nav button svg {
+    width: 22px !important; 
+    height: 22px !important;
+    margin: 0 !important; 
+    color: var(--text-primary) !important; 
+}
+
+/* Ocultar versión/iconos inútiles del fondo */
 [role="dialog"] nav > div:last-child { display: none !important; }
 
 /* --------------------------------------------------------------------------
-   ÁREA DE CONTENIDO DERECHA (LOS AJUSTES EN SÍ)
+   ÁREA DE CONTENIDO DERECHA (ESCALADA 0.9 Y COMPENSADA)
    -------------------------------------------------------------------------- */
 [role="dialog"] nav ~ div,
 [role="dialog"] nav + div {
     flex: 1 1 auto !important; 
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100% !important;
     overflow-y: auto !important;
     padding: 16px !important;
     background-color: transparent !important;
+
+    /* Aislamiento físico del scroll */
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+
+    /* Escalado solicitado */
+    transform: scale(0.9) !important;
+    transform-origin: top left !important;
+    
+    /* Compensación lógica: Rellenar el vacío provocado por el scale */
+    width: 111.11% !important;
+    max-width: 111.11% !important;
+    height: 111.11% !important;
 }
 
+/* --------------------------------------------------------------------------
+   ANTIDEFORMACIÓN DEL CONTENIDO INTERNO
+   -------------------------------------------------------------------------- */
 [role="dialog"] nav ~ * div {
     flex-wrap: wrap !important;
 }
 
 [role="dialog"] nav ~ * button {
     flex-shrink: 0 !important; 
-    width: max-content !important;
-    min-height: 28px !important;
-    white-space: nowrap !important;
-    padding: 4px 10px !important;
-    margin: 2px !important;
-    font-size: 12px !important;
-}
-
-[role="dialog"] nav ~ * input[type="text"],
-[role="dialog"] nav ~ * input[placeholder*="Search"] {
-    width: 100% !important;
-    flex-shrink: 1 !important;
-    min-height: 32px !important;
-    margin-bottom: 8px !important;
-}
-
-[role="dialog"] p, [role="dialog"] span, [role="dialog"] label {
-    word-break: normal !important;
-    overflow-wrap: anywhere !important;
-}
-
-
-
-/* --------------------------------------------------------------------------
-   ANTIDEFORMACIÓN DEL CONTENIDO DE LOS AJUSTES
-   -------------------------------------------------------------------------- */
-/* Forzar que los grupos de botones/pastillas bajen a la siguiente línea si no caben */
-[role="dialog"] nav ~ * div {
-    flex-wrap: wrap !important;
-}
-
-/* Proteger botones para que mantengan su forma original (Clear, Export, etc.) */
-[role="dialog"] nav ~ * button {
-    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe el aplastamiento */
-    width: max-content !important; /* Mide exactamente lo que ocupa su texto */
+    width: max-content !important; 
     min-width: min-content !important;
     height: auto !important;
     min-height: 28px !important;
-    white-space: nowrap !important; /* El texto del botón NUNCA se corta */
+    white-space: nowrap !important; 
     padding: 4px 10px !important;
     margin: 2px !important;
     font-size: 12px !important;
 }
 
-/* Arreglar el buscador (Search logs...) para que sea flexible pero no se rompa */
 [role="dialog"] nav ~ * input[type="text"],
 [role="dialog"] nav ~ * input[placeholder*="Search"] {
     width: 100% !important;
@@ -174,21 +191,14 @@ body, #root {
     margin-bottom: 8px !important;
 }
 
-/* Impedir que las palabras se rompan letra por letra */
-[role="dialog"] p, 
-[role="dialog"] span, 
-[role="dialog"] label, 
-[role="dialog"] pre {
+[role="dialog"] p, [role="dialog"] span, [role="dialog"] label, [role="dialog"] pre {
     word-break: normal !important;
-    overflow-wrap: anywhere !important; /* Solo corta palabras si es una ruta o ID extremadamente largo */
+    overflow-wrap: anywhere !important; 
 }
 
-/* Reducir los iconos dentro de los botones */
+/* Evitar que los iconos de dentro de los botones de ajuste se encojan */
 [role="dialog"] svg {
-    width: 14px !important;
-    height: 14px !important;
     flex-shrink: 0 !important;
-    margin-right: 4px !important;
 }
 
 
@@ -207,7 +217,7 @@ header[data-tauri-drag-region] {
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
-    overflow: visible !important; /* CRÍTICO: Permite que los botones escapen de la altura 0 */
+    overflow: visible !important; 
 }
 
 /* Ocultamos búsqueda y logo */
@@ -219,19 +229,18 @@ header[data-tauri-drag-region] > div:first-child,
 /* Arrancamos los botones (QR y Tema) y los pegamos fijos en la barra izquierda */
 header[data-tauri-drag-region] > div:last-child {
     position: fixed !important;
-    bottom: 85px !important; /* Altura de la Bottom Bar (64) + espacio de aire */
+    bottom: 85px !important; 
     left: 8px !important;
-    /* Z-INDEX CORREGIDO: 10 garantiza que quede por debajo del fondo gris de los modales */
     z-index: 10 !important; 
     display: flex !important;
-    flex-direction: column !important; /* Apilar QR y Tema verticalmente */
+    flex-direction: column !important; 
     align-items: center !important;
     gap: 16px !important;
     transform: scale(0.75) !important;
     transform-origin: center left !important;
 }
 
-/* Le damos espacio inferior a la barra lateral izquierda para que su contenido no quede tapado por estos botones */
+/* Le damos espacio inferior a la barra lateral izquierda */
 div:has(> main[data-testid="player-workspace-main"]) > div:first-child > div.flex-1 {
     padding-bottom: 100px !important;
 }
@@ -257,7 +266,7 @@ footer > div.grid > div:nth-child(3) button {
    ========================================================================== */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     position: fixed !important;
-    bottom: 80px !important; /* Empieza por encima del Footer */
+    bottom: 80px !important; 
     left: 0 !important; 
     right: 0 !important;
     width: 100vw !important; 
@@ -265,9 +274,9 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child {
     border-left: none !important; 
     border-top: 2px solid var(--border) !important;
     background-color: var(--background-secondary) !important;
-    z-index: 40 !important; /* Por debajo de la capa de modales de Radix */
+    z-index: 40 !important; 
     transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    overflow: visible !important; /* CRÍTICO: Permite que el botón se descuelgue por debajo */
+    overflow: visible !important; 
 }
 
 /* Alturas dinámicas basadas en el state de React */
@@ -291,17 +300,17 @@ div:has(> main[data-testid="player-workspace-main"]) > div:last-child > div.curs
 /* Sacamos el contenedor del botón fuera del panel de la Queue y lo bajamos a la Bottom Bar */
 div:has(> main[data-testid="player-workspace-main"]) > div:last-child > span:first-child {
     position: absolute !important;
-    bottom: -68px !important; /* Desciende 52px (dentro del footer) */
-    right: 16px !important; /* A la derecha del todo */
+    bottom: -68px !important; 
+    right: 16px !important; 
     width: 40px !important;
     height: 40px !important;
     margin: 0 !important; 
     padding: 0 !important;
     justify-content: center !important;
     align-items: center !important;
-    z-index: 40 !important; /* Igual que el panel de la Queue, por debajo de modales */
+    z-index: 40 !important; 
 }
 [data-testid="sidebar-toggle-right"] {
-    transform: rotate(-90deg) !important; /* Flecha mirando hacia arriba */
+    transform: rotate(-90deg) !important; 
     margin: 0 !important;
 }
