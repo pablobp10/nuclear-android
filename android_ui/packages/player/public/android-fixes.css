@@ -67,18 +67,18 @@ body, #root {
 }
 
 /* --------------------------------------------------------------------------
-   MENÚ LATERAL DENTRO DE LOS AJUSTES - ANCHO FIJO
+   MENÚ LATERAL IZQUIERDO (COLUMNA ESTRECHA)
    -------------------------------------------------------------------------- */
 [role="dialog"] nav {
     display: flex !important;
     flex-direction: column !important;
 
-    width: 35% !important;
-    min-width: 120px !important;
+    width: 35% !important; /* Ocupa un tercio de la tarjeta */
+    min-width: 110px !important;
     max-width: 140px !important;
-    height: 100% !important; /* Altura fija */
+    height: 100% !important; 
 
-    flex-shrink: 0 !important; /* CRÍTICO: Prohíbe que el menú se estreche */
+    flex-shrink: 0 !important; /* Prohíbe que se aplaste */
 
     overflow-y: auto !important;
     overflow-x: hidden !important;
@@ -94,11 +94,53 @@ body, #root {
     margin-bottom: 4px !important;
     font-size: 13px !important;
     text-align: left !important;
-    white-space: normal !important; /* Aquí sí permitimos texto en dos líneas si es largo */
+    white-space: normal !important; 
 }
 
-/* Ocultar versión/iconos del fondo del menú para ganar espacio */
+/* Ocultar versión del fondo del menú */
 [role="dialog"] nav > div:last-child { display: none !important; }
+
+/* --------------------------------------------------------------------------
+   ÁREA DE CONTENIDO DERECHA (LOS AJUSTES EN SÍ)
+   -------------------------------------------------------------------------- */
+/* Obligamos a la caja derecha a rellenar el 65% restante del espacio */
+[role="dialog"] nav ~ div,
+[role="dialog"] nav + div {
+    flex: 1 1 auto !important; /* Expansión total */
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    padding: 16px !important;
+}
+
+/* Forzar que los botones internos (Clear, Export) bajen si no caben */
+[role="dialog"] nav ~ * div {
+    flex-wrap: wrap !important;
+}
+
+[role="dialog"] nav ~ * button {
+    flex-shrink: 0 !important; 
+    width: max-content !important;
+    min-height: 28px !important;
+    white-space: nowrap !important;
+    padding: 4px 10px !important;
+    margin: 2px !important;
+    font-size: 12px !important;
+}
+
+[role="dialog"] nav ~ * input[type="text"],
+[role="dialog"] nav ~ * input[placeholder*="Search"] {
+    width: 100% !important;
+    flex-shrink: 1 !important;
+    min-height: 32px !important;
+    margin-bottom: 8px !important;
+}
+
+[role="dialog"] p, [role="dialog"] span, [role="dialog"] label {
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+}
 
 
 /* --------------------------------------------------------------------------
