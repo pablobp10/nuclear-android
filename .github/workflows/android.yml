@@ -193,8 +193,8 @@ jobs:
           cp public/logo-icon-on-white.png src-tauri/icons/app-icon.png
           npx tauri icon public/logo-icon-on-white.png
 
-      # ====================================================================
-      # 🚀 FASE 4: ENSAMBLAJE Y PUBLICACIÓN
+            # ====================================================================
+      # 🚀 FASE 4: ENSAMBLAJE Y PUBLICACIÓN INTELIGENTE
       # ====================================================================
       - name: Construir y Compilar APK (Firmado Automático + Optimizado)
         run: |
@@ -204,20 +204,26 @@ jobs:
       - name: "Generar Checksums"
         run: |
           echo "Buscando APKs generados..."
-          # Usamos find para localizar recursivamente todos los .apk y pasarles el comando sha256sum
           find packages/player/src-tauri/gen/android/app/build/outputs/apk -type f -name "*.apk" -exec sha256sum {} + > checksums.txt
-          
           echo "=== CHECKSUMS GENERADOS ==="
           cat checksums.txt
 
-      - name: "🚀 Release: Empaquetar artefactos"
+      - name: "💾 Guardar APK en Pruebas (Sincronización Nocturna / Manual)"
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: "Nuclear-CE-Nightly-Build"
+          path: |
+            packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            checksums.txt
+          retention-days: 7
+
+      - name: "🚀 Publicar APK en Versión Oficial (Release Please)"
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: "Nuclear CE (Android Build)"
-          tag_name: "build-${{ github.run_id }}"
           files: |
             packages/player/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
             checksums.txt
-          body: "APK compilado nativamente para Android (aarch64). UI Táctil y Rebranding Legal aplicados."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
