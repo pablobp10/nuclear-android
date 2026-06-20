@@ -62,5 +62,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run android.yml --ref main
+          # Usamos --repo para forzar a GitHub CLI a ejecutar la action en nuestro fork, no en el upstream
+          gh workflow run android.yml --repo ${{ github.repository }} --ref main
           echo "¡Orden de compilación enviada al Constructor!"
